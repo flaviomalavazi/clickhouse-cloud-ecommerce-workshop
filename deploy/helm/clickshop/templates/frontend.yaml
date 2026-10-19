@@ -49,11 +49,13 @@ spec:
             tcpSocket: { port: http }
             periodSeconds: 2
             failureThreshold: 60
-          # A cheap query: the pod is ready when it can reach Postgres.
+          # Ready means the server is listening, not that Postgres answers: a probe
+          # that queried the database took the pod out of the Service whenever
+          # Postgres was slow, and a Service with no endpoints refuses every
+          # request, static pages included. `make check-05` checks the database path.
           readinessProbe:
-            httpGet: { path: /api/categories, port: http }
-            periodSeconds: 10
-            timeoutSeconds: 5
+            tcpSocket: { port: http }
+            periodSeconds: 5
           livenessProbe:
             tcpSocket: { port: http }
             periodSeconds: 20
