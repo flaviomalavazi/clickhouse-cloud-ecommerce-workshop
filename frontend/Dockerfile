@@ -16,20 +16,10 @@ CMD ["npm", "run", "dev"]
 FROM base AS builder
 # NEXT_PUBLIC_* vars are baked into the client bundle at build time.
 # Pass them as build args so the production image gets the right values.
-ARG NEXT_PUBLIC_SNOWPLOW_COLLECTOR_URL=http://localhost:9090
 ARG NEXT_PUBLIC_SNOWPLOW_APP_ID=clickshop
 ARG NEXT_PUBLIC_BASE_URL=http://localhost:3000
-ARG NEXT_PUBLIC_OTEL_COLLECTOR_URL=http://localhost:4318
-ARG CADDY_DOMAIN=localhost
-# Read by next.config.js at build time: rewrites are compiled into the routes
-# manifest and are not evaluated again by the production server.
-ARG CLOUDFRONT_DOMAIN=
-ENV NEXT_PUBLIC_SNOWPLOW_COLLECTOR_URL=$NEXT_PUBLIC_SNOWPLOW_COLLECTOR_URL \
-    NEXT_PUBLIC_SNOWPLOW_APP_ID=$NEXT_PUBLIC_SNOWPLOW_APP_ID \
-    NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL \
-    NEXT_PUBLIC_OTEL_COLLECTOR_URL=$NEXT_PUBLIC_OTEL_COLLECTOR_URL \
-    CADDY_DOMAIN=$CADDY_DOMAIN \
-    CLOUDFRONT_DOMAIN=$CLOUDFRONT_DOMAIN
+ENV NEXT_PUBLIC_SNOWPLOW_APP_ID=$NEXT_PUBLIC_SNOWPLOW_APP_ID \
+    NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
 RUN npm ci
 COPY . .
 RUN npm run build

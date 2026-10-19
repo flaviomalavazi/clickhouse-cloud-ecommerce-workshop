@@ -1,0 +1,4 @@
+clickhouse-connect==1.1.1
+psycopg[binary]==3.2.9
+faker==25.9.1
+pytest==8.3.4

@@ -42,22 +42,6 @@ const nextConfig = {
     }
     return config;
   },
-  // Caddy owns /images in deployed environments. The rewrite keeps the same
-  // catalogue usable when the documented localhost:3000 path bypasses Caddy.
-  async rewrites() {
-    const cdn = process.env.CLOUDFRONT_DOMAIN;
-    if (!cdn) return [];
-    return [{ source: '/images/:file', destination: `https://${cdn}/:file` }];
-  },
-  images: {
-    remotePatterns: (() => {
-      const domain = process.env.CADDY_DOMAIN;
-      if (domain && domain !== 'localhost') {
-        return [{ protocol: 'https', hostname: domain }];
-      }
-      return [{ protocol: 'http', hostname: 'localhost' }];
-    })(),
-  },
 };
 
 module.exports = nextConfig;

@@ -175,7 +175,7 @@ def load_catalog() -> dict[str, list[tuple[int, float]]]:
             result = client.query(
                 f"""
                 SELECT product_id, category_slug, price
-                FROM {CLICKHOUSE_DATABASE}.products_search FINAL
+                FROM {CLICKHOUSE_DATABASE}.products_search
                 WHERE is_active = 1
                 LIMIT {CATALOG_LIMIT}
                 """,

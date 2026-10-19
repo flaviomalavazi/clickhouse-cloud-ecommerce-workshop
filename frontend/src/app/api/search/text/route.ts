@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
             original_price,
             image_url,
             category_slug
-        FROM products_search FINAL
+        FROM products_search
         WHERE is_active = 1
           AND (${tokenConditions})
           ${categoryFilter}
