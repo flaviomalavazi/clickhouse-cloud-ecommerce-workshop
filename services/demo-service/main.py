@@ -166,7 +166,10 @@ async def run_role(request: Request) -> Response:
         if is_down:
             await asyncio.sleep(timeout_ms / 1000)
             span.set_status(trace.Status(trace.StatusCode.ERROR, "card gateway unavailable"))
-            logger.error("journey failed role=%s route=%s source=%s status=502", ROLE, request.url.path, source)
+            logger.error(
+                "journey failed role=%s route=%s source=%s status=502 error=%s",
+                ROLE, request.url.path, source, CARD_GATEWAY_ERROR["error"],
+            )
             return JSONResponse(CARD_GATEWAY_ERROR, status_code=502, headers={"Retry-After": "5"})
 
     await asyncio.sleep(latency_seconds())
@@ -178,12 +181,15 @@ async def run_role(request: Request) -> Response:
                 calls.extend(await asyncio.gather(*(call_downstream(client, edge, payload) for edge in stage)))
     except DownstreamFailure as failure:
         span.set_status(trace.Status(trace.StatusCode.ERROR, f"downstream returned {failure.status_code}"))
+        # The downstream's own answer goes in the log, so searching for its error code
+        # (card_gateway_unavailable) finds every service the failure passed through.
         logger.error(
-            "journey failed role=%s route=%s source=%s status=%s",
+            "journey failed role=%s route=%s source=%s status=%s error=%s",
             ROLE,
             request.url.path,
             source,
             failure.status_code,
+            failure.body.decode("utf-8", errors="replace")[:200],
         )
         return failure_response(failure)
 

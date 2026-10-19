@@ -1,0 +1,35 @@
+{{- /* Rendered only by `make backfill`, which applies it outside the release: a
+Job is a one-off, and a Helm release would run it again every time it is upgraded. */}}
+{{- if .Values.backfill.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backfill
+  labels: {{- include "clickshop.podLabels" (dict "name" "backfill" "serviceName" "backfill") | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {{- include "clickshop.podLabels" (dict "name" "backfill" "serviceName" "backfill") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: backfill
+          image: {{ include "clickshop.image" (dict "name" "clickshop-producers" "root" .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-u", "web_events.py"]
+          envFrom: {{- include "clickshop.envFrom" . | nindent 12 }}
+          env:
+            # History only (every session backdated, the last day left to the live
+            # producers), as fast as ClickHouse takes it, in 100k-row inserts.
+            - { name: EVENT_MODE, value: "mixed" }
+            - { name: BACKFILL_RATIO, value: "1.0" }
+            - { name: BACKFILL_DAYS, value: {{ .Values.backfill.days | int64 | quote }} }
+            - { name: PRODUCE_MAX_EVENTS, value: {{ .Values.backfill.events | int64 | quote }} }
+            - { name: PRODUCE_WORKER_MODE, value: "process" }
+            - { name: PRODUCE_WORKERS, value: {{ .Values.backfill.workers | int64 | quote }} }
+            - { name: PRODUCE_TARGET_EPS, value: "0" }
+            {{- include "clickshop.k8sEnv" . | nindent 12 }}
+          resources: {{- toYaml .Values.backfill.resources | nindent 12 }}
+{{- end }}

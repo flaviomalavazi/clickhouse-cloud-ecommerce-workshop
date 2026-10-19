@@ -1,0 +1,37 @@
+{{- if .Values.simulator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+  labels: {{- include "clickshop.podLabels" (dict "name" "simulator" "serviceName" "loadgen") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "clickshop.selectorLabels" "simulator" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "clickshop.podLabels" (dict "name" "simulator" "serviceName" "loadgen") | nindent 8 }}
+    spec:
+      # `make images` loads the simulator image onto one node only (it is the
+      # biggest image) and labels that node.
+      nodeSelector:
+        clickshop/simulator-image: "present"
+      containers:
+        - name: simulator
+          image: {{ include "clickshop.image" (dict "name" "clickshop-simulator" "root" .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Arrival rate and dwell scale come from .env (SIM_ARRIVALS_PER_MINUTE,
+          # SIM_DWELL_SCALE). The browsers are set here, by `make sim-start USERS=n`.
+          envFrom: {{- include "clickshop.envFrom" . | nindent 12 }}
+          env:
+            # The storefront by its Service name. The pages use paths relative to
+            # their own origin, so they work from here as well as from localhost:3000.
+            - { name: SIM_URL, value: "http://frontend:3000" }
+            - { name: SIM_SESSIONS, value: {{ .Values.simulator.sessions | quote }} }
+            {{- include "clickshop.k8sEnv" . | nindent 12 }}
+          resources:
+            requests: {{- toYaml .Values.simulator.resources.requests | nindent 14 }}
+              memory: {{ add .Values.simulator.baseMemoryMi (div (mul .Values.simulator.sessions .Values.simulator.perSessionMemoryMi) 2) }}Mi
+            limits:
+              memory: {{ add .Values.simulator.baseMemoryMi (mul .Values.simulator.sessions .Values.simulator.perSessionMemoryMi) }}Mi
+{{- end }}

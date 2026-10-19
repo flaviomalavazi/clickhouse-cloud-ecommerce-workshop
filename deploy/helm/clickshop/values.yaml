@@ -1,0 +1,111 @@
+# Defaults for the ClickShop chart. `make app` installs it into the `clickshop`
+# namespace. Credentials are not here: every pod that connects to a database reads
+# the Secret `clickshop-secrets`, which `make secrets` builds from the root `.env`.
+
+# Images are built (or pulled) by `make images` / `make prefetch` and loaded into
+# the cluster, so nothing is pulled at run time.
+image:
+  tag: workshop
+  pullPolicy: IfNotPresent
+
+secretName: clickshop-secrets
+# The Postgres CA certificate; `make secrets` creates it when .env sets PGSSLROOTCERT.
+postgresCASecretName: clickshop-pg-ca
+
+# Where pods find each other. The Services are named by role, which is what the
+# demo services call (http://<role>:8000).
+telemetry:
+  otlpEndpoint: http://otel-gateway:4318
+  metricsUrl: http://otel-gateway:8888/metrics
+
+frontend:
+  replicas: 1
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { memory: 1Gi }
+  # Postgres connections per pod (the frontend's own default is 24).
+  pgPoolMax: 24
+
+# One Deployment and one Service per role. Latencies are what each hop adds to a
+# trace, so the service map and the flame graphs have something to show.
+# `extraEnv` is a map of plain variables; `fromSecret` lists keys the pod takes
+# from the Secret if .env defines them (the pod never gets the database credentials).
+demoServices:
+  - { role: storefront-bff,      latencyMs: 10 }
+  - { role: catalog-svc,         latencyMs: 15 }
+  - { role: checkout-svc,        latencyMs: 15 }
+  - { role: pricing-svc,         latencyMs: 20 }
+  - { role: inventory-svc,       latencyMs: 25 }
+  - { role: payment-card-svc,    latencyMs: 15 }
+  # When `make break-card-gateway` switches it off it answers 502 after this long,
+  # so the failure shows up in a trace as a slow span as well as an error.
+  # CARD_GATEWAY_DOWN is read from .env if it is there (fromSecret).
+  - role: card-gateway
+    latencyMs: 120
+    extraEnv: { CARD_GATEWAY_TIMEOUT_MS: "1500" }
+    fromSecret: [CARD_GATEWAY_DOWN]
+  - { role: payment-pix-svc,     latencyMs: 15 }
+  - { role: pix-psp-gateway,     latencyMs: 80 }
+  - { role: payment-boleto-svc,  latencyMs: 15 }
+  - { role: boleto-gateway,      latencyMs: 60 }
+  - { role: order-svc,           latencyMs: 30 }
+  - { role: ledger-svc,          latencyMs: 20 }
+  - { role: email-gateway,       latencyMs: 50 }
+# The card gateway's fault switch, set by `make break-card-gateway` (true) and
+# `make fix-card-gateway` (false). Unset, the gateway reads CARD_GATEWAY_DOWN from
+# .env if it is there, and is up otherwise.
+cardGatewayDown: null
+
+demoService:
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { memory: 192Mi }
+
+snowplowMicro:
+  image: snowplow/snowplow-micro:4.6.1
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits: { memory: 1Gi }
+
+snowplowBridge:
+  pollIntervalSeconds: 2
+  resources:
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { memory: 256Mi }
+
+# The ClickStack collector. Its memory_limiter is 1500 MiB, so the limit must stay
+# above 2 GiB or Kubernetes OOM-kills it before the limiter sheds load.
+otelGateway:
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits: { memory: 2Gi }
+
+# The live generators: web events and card transactions. Off until
+# `make generators-start`. Rates come from .env (PRODUCE_TARGET_EPS, CC_TARGET_TPS).
+producers:
+  enabled: false
+  workers: 2
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits: { memory: 768Mi }
+
+# A one-off history load: `make backfill`. Pods see the node's CPU count, not
+# their limit, so the worker count is explicit.
+backfill:
+  enabled: false
+  days: 30
+  events: 5000000
+  workers: 2
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits: { memory: 2Gi }
+
+# Headless-browser shoppers: `make sim-start USERS=n`. A browser needs about
+# 300 MB, so the memory limit follows `sessions`.
+simulator:
+  enabled: false
+  sessions: 4
+  baseMemoryMi: 512
+  perSessionMemoryMi: 320
+  resources:
+    requests: { cpu: 500m }

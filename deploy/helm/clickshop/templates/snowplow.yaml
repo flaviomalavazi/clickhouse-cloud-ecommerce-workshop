@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snowplow-micro
+  labels: {{- include "clickshop.podLabels" (dict "name" "snowplow-micro" "serviceName" "snowplow-micro") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "clickshop.selectorLabels" "snowplow-micro" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "clickshop.podLabels" (dict "name" "snowplow-micro" "serviceName" "snowplow-micro") | nindent 8 }}
+    spec:
+      containers:
+        - name: snowplow-micro
+          image: {{ .Values.snowplowMicro.image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # --yauaa fills the browser and device fields of every event.
+          args: ["--yauaa"]
+          ports:
+            - { name: http, containerPort: 9090 }
+          env:
+            # Size the JVM heap from the container limit rather than the node's memory.
+            - { name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=50" }
+          startupProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 10
+          resources: {{- toYaml .Values.snowplowMicro.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: snowplow-micro
+  labels: {{- include "clickshop.selectorLabels" "snowplow-micro" | nindent 4 }}
+spec:
+  selector: {{- include "clickshop.selectorLabels" "snowplow-micro" | nindent 4 }}
+  ports:
+    - { name: http, port: 9090, targetPort: http }
+---
+# Reads the events Micro validated and writes them to ClickHouse.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snowplow-bridge
+  labels: {{- include "clickshop.podLabels" (dict "name" "snowplow-bridge" "serviceName" "snowplow-bridge") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "clickshop.selectorLabels" "snowplow-bridge" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "clickshop.podLabels" (dict "name" "snowplow-bridge" "serviceName" "snowplow-bridge") | nindent 8 }}
+    spec:
+      containers:
+        - name: snowplow-bridge
+          image: {{ include "clickshop.image" (dict "name" "clickshop-snowplow-bridge" "root" .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom: {{- include "clickshop.envFrom" . | nindent 12 }}
+          env:
+            - { name: SNOWPLOW_MICRO_URL, value: "http://snowplow-micro:9090" }
+            - { name: POLL_INTERVAL_SECONDS, value: {{ .Values.snowplowBridge.pollIntervalSeconds | quote }} }
+            {{- include "clickshop.otlpEnv" . | nindent 12 }}
+            {{- include "clickshop.k8sEnv" . | nindent 12 }}
+          resources: {{- toYaml .Values.snowplowBridge.resources | nindent 12 }}

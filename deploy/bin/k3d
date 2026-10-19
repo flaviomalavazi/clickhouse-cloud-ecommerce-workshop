@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# k3d from a container. It needs the Docker socket: k3d creates the cluster's
+# nodes as sibling containers on the host's Docker.
+set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/_env.sh"
+mkdir -p "$REPO/.workshop"
+
+exec docker run --rm "${tty_flags[@]}" \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e K3D_IMAGE_TOOLS="$K3D_TOOLS_IMAGE" \
+  -e K3D_IMAGE_LOADBALANCER="$K3D_PROXY_IMAGE" \
+  -v "$REPO":/workspace:ro -w /workspace \
+  "$K3D_IMAGE" "$@"

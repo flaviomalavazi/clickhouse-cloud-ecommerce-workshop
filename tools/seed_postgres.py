@@ -110,6 +110,16 @@ def apply_schema(conn) -> None:
         print(f"applied {path.relative_to(ROOT)} ({n} statements)")
 
 
+def seed_stock(entries: list[dict], active: list[int]) -> dict[int, int]:
+    """The starting stock of every catalogue product (30 active ones start low)."""
+    low_stock = set(rng_for("lowstock").sample(sorted(active), N_LOW_STOCK))
+    stock = {}
+    for e in entries:
+        rng = rng_for("stock", e["id"])
+        stock[e["id"]] = rng.randint(3, 15) if e["id"] in low_stock else rng.randint(20, 300)
+    return stock
+
+
 def seed_products(conn, entries: list[dict], images: set[int]) -> tuple[list[int], int]:
     """Insert products and their stock. Returns (active product ids, skus changed)."""
     skus, changed = unique_skus(entries)
@@ -150,13 +160,10 @@ def seed_products(conn, entries: list[dict], images: set[int]) -> tuple[list[int
         )
         cur.execute("SELECT setval(pg_get_serial_sequence('products', 'id'), (SELECT max(id) FROM products))")
 
-        low_stock = set(rng_for("lowstock").sample(sorted(active), N_LOW_STOCK))
-        stock_rows = []
-        for e in entries:
-            rng = rng_for("stock", e["id"])
-            qty = rng.randint(3, 15) if e["id"] in low_stock else rng.randint(20, 300)
-            stock_rows.append((e["id"], qty))
-        cur.executemany("INSERT INTO stock (product_id, quantity) VALUES (%s, %s)", stock_rows)
+        cur.executemany(
+            "INSERT INTO stock (product_id, quantity) VALUES (%s, %s)",
+            sorted(seed_stock(entries, active).items()),
+        )
     conn.commit()
     return active, changed
 
@@ -233,6 +240,40 @@ def seed_orders(conn, active: list[int]) -> None:
 
 
 # No parameters are passed with this one, so psycopg leaves the `%` alone.
+def restore_seed(conn) -> dict[str, int]:
+    """
+    Put the data back to what the seed made, without TRUNCATE.
+
+    Orders and customers the storefront added are deleted and every stock level goes
+    back to its starting value. The ClickPipe replicates DELETE and UPDATE, but not
+    TRUNCATE, so truncating a replicated table would leave the removed rows in
+    ClickHouse for good; this is how to reset while the pipe is running.
+    Returns how many rows were removed or changed.
+    """
+    entries = load_catalog()
+    images = image_ids()
+    active = [e["id"] for e in entries if not e.get("flagged_for_deletion") and e["id"] in images]
+    expected = seed_stock(entries, active)
+
+    conn.autocommit = True
+    removed = {
+        "order_items": conn.execute("DELETE FROM order_items WHERE order_id > %s", (N_ORDERS,)).rowcount,
+        "orders": conn.execute("DELETE FROM orders WHERE id > %s", (N_ORDERS,)).rowcount,
+        "customers": conn.execute("DELETE FROM customers WHERE id > %s", (N_CUSTOMERS,)).rowcount,
+    }
+    restored = 0
+    for product_id, quantity in expected.items():
+        restored += conn.execute(
+            "UPDATE stock SET quantity = %s, updated_at = now() WHERE product_id = %s AND quantity <> %s",
+            (quantity, product_id, quantity),
+        ).rowcount
+    # New orders and customers must be numbered from where the seed stopped.
+    conn.execute("SELECT setval(pg_get_serial_sequence('orders', 'id'), %s)", (N_ORDERS,))
+    conn.execute("SELECT setval(pg_get_serial_sequence('customers', 'id'), %s)", (N_CUSTOMERS,))
+    conn.execute("SELECT setval(pg_get_serial_sequence('order_items', 'id'), (SELECT max(id) FROM order_items))")
+    return {**removed, "stock_levels": restored}
+
+
 PLACEHOLDER_COUNT_SQL = "SELECT count(*) FROM products WHERE image_url LIKE '%placeholder%'"
 
 

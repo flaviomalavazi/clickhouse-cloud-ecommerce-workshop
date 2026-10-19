@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# kubectl from a container, pointed at .workshop/kubeconfig.
+set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/_env.sh"
+
+exec docker run --rm "${tty_flags[@]}" "${net_flags[@]}" "${repo_flags[@]}" \
+  -e KUBECONFIG="$KUBECONFIG_IN" \
+  "$KUBECTL_IMAGE" "$@"

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: clickshop
+description: The ClickShop workshop application. The storefront, the demo microservices, Snowplow Micro and its bridge, the ClickStack gateway collector and the load generators, all talking to the participant's ClickHouse Cloud service and Managed Postgres.
+type: application
+version: 0.1.0
+appVersion: workshop

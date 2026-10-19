@@ -39,6 +39,16 @@ and the change is written down below.
 | D29 | The Snowplow bridge resets Micro **before** it inserts and retries failed inserts from memory, instead of resetting after. Measured loss with the plan's order: 3 of the 9 events one browser session sent (a third); with this order: 0 of 81 across 9 sessions. | Proposed |
 | D30 | The simulator's shoppers use a **workshop funnel** that converts more than the shared one (`bounce_rate` 0.20, `search_rate` 0.40, `pdp_to_cart` 0.20, `cart_to_checkout` 0.95, `checkout_to_purchase` 0.95), unless `SIM_REALISTIC_FUNNEL=true`. The shared rates give about 2.5% of sessions an order: one every seven minutes at the laptop's 6 sessions a minute. The producers keep the realistic rates. | Proposed |
 | D31 | Simulator laptop defaults: 4 concurrent browsers, 6 sessions a minute, dwell scale 0.1, and a **flat** arrival rate (the diurnal curve is opt-in with `SIM_DIURNAL=true`). `.env.example` documents `SIM_SESSIONS` (concurrent browsers) rather than `SIM_MAX_BACKLOG`, which stays an internal queue cap. | Proposed |
+| D32 | `k3d`, `kubectl` and `helm` run from pinned container images through wrappers in `deploy/bin/` (versions in `deploy/versions.env`), against a project-scoped kubeconfig at `.workshop/kubeconfig`. Participants install only Docker and `make`, and the participant's own `~/.kube/config` is never read or changed. | Proposed |
+| D33 | Images are loaded into the nodes with `docker save --platform` and `ctr images import`, then **checked on every node**, instead of `k3d image import`. With Docker's containerd image store (the default in Docker 29 and recent Docker Desktop) k3d prints "Successfully imported" and exits 0 while every node refused the archive. | Proposed |
+| D34 | The kubelets run with `eviction-hard` and image GC thresholds relaxed (`deploy/k3d/cluster.yaml`), and `make doctor` checks for 10 GB of free space in Docker's disk. All three nodes share one disk and each sees the whole of it, so on a disk that is 90% full the defaults taint every node and evict the pods, and at 85% they garbage-collect the images `make images` loaded. | Proposed |
+| D35 | Only the pods that connect to a database read the whole `clickshop-secrets` Secret (`envFrom`). The 14 demo services get no credentials; `card-gateway` takes `CARD_GATEWAY_DOWN` from the Secret through an optional `secretKeyRef`. The Postgres CA certificate is a second Secret mounted into the frontend, which replaces the host path in `PGSSLROOTCERT`. | Proposed |
+| D36 | The optional keys of `.env` travel in the same Secret as the required ones; there is no second ConfigMap. Chart values never set a variable that `.env` can set, because an explicit `env` entry beats `envFrom`. | Proposed |
+| D37 | Helm release state: `make app` uses `--reset-then-reuse-values`, the generators and simulator are `enabled` values (`make generators-start`, `make sim-start`), and the backfill Job is rendered with `helm template` and applied outside the release, so an upgrade never runs it again. | Proposed |
+| D38 | The Kubernetes collectors use the guide's collector image **0.123.0** with chart **0.122.5** (the last chart built for that generation). At that version the kubelet metrics have the names HyperDX's Kubernetes dashboard reads (`k8s.pod.cpu.utilization`, `k8s.node.cpu.utilization`); collectors from 0.125 emit `.usage` instead. | Proposed |
+| D39 | Logs are de-duplicated by label: pods that send logs over OTLP (frontend, demo services) carry `otel.logs: otlp`, and the node collector drops their stdout after `k8sattributes`. | Proposed |
+| D40 | The simulator image is **Chromium only** (1.5 GB, `python:3.12-slim-bookworm` plus `playwright install --with-deps chromium`, Playwright still 1.44.0) instead of the 2.9 GB official image with three browsers. It is loaded onto **one** node, labelled `clickshop/simulator-image`, which the chart's `nodeSelector` asks for. `clickshop-tools` is not loaded into the cluster: it only runs through `docker run`. | Proposed |
+| D41 | `.env.example` no longer lists `SIM_SESSIONS` (amends D31): the number of browsers is `make sim-start USERS=n`, because it sets the pod's memory limit as well. | Proposed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -384,3 +394,135 @@ the splitter's unit tests, and the frontend (`npm run dev`) reading the seeded d
   `SIM_ARRIVALS_PER_MINUTE` and `SIM_DWELL_SCALE` are in `.env.example`.)
 - The simulator needs about 300 MB per browser plus the Chromium base, and its image is 2.8 GB, so
   `k3d image import` of it is slow; the producers image is 260 MB.
+
+## Phase 5: k3d platform
+
+D32 to D41 above are the decisions. This section records what was checked on the real services
+(the owner's ClickHouse Cloud 26.6.1 and Managed Postgres 18.6) and what went wrong on the way.
+
+### Tools and versions
+
+- **k3d 5.8.3, Helm 3.19.0, kubectl 1.33.9, k3s v1.33.5-k3s1**, all run from containers
+  (`deploy/bin/{k3d,helm,kubectl}`, pins in `deploy/versions.env`). The answer to "do we install k3d
+  and helm?" is no: Docker and `make` are the only prerequisites. k3d needs the Docker socket; helm
+  and kubectl join the `k3d-clickshop` network and reach the API server at
+  `https://k3d-clickshop-serverlb:6443`, whose certificate is valid for that name.
+- k3d's two helper images (`k3d-tools`, `k3d-proxy`) default to `latest`; the wrapper pins them to
+  5.8.3 through `K3D_IMAGE_TOOLS` and `K3D_IMAGE_LOADBALANCER`.
+- **Collector 0.123.0 and chart 0.122.5.** The ClickStack guide pins the image and leaves the chart
+  unpinned (so it installs today's chart, 0.176.0, built for collector 0.162). 0.122.5 is the last
+  chart built for the 0.123 generation. The guide's own values files are the basis of
+  `deploy/helm/otel-k8s/*.values.yaml`.
+- `clickhouse/clickstack-otel-collector:2.41.0` (the gateway) is what `latest` pointed to when it
+  was pinned.
+
+### Verified, from a fresh cluster
+
+- `make cluster images secrets app` on a fresh cluster took **2 minutes 23 seconds** with Docker's
+  layer cache warm; 18 pods Ready (14 demo services, frontend, Micro, bridge, gateway) plus the
+  node collector on each of 3 nodes and the cluster collector. `make check-05` passes: Traefik
+  serves the storefront on `localhost:3000`, `/api/categories` comes from Postgres, search comes
+  from ClickHouse, Micro answers through the storefront.
+- **Kubernetes attributes (5.6).** Every span from the 14 demo services carries `k8s.pod.uid`,
+  `k8s.node.name`, `k8s.namespace.name`, `k8s.deployment.name` and `k8s.pod.name`; so do the
+  frontend's server spans and the bridge's. A checkout trace crosses 8 services: frontend,
+  storefront-bff, checkout-svc, a payment service, its gateway, order-svc, ledger and email.
+- **The Verify item on metric names is settled.** At collector 0.123.0 the kubelet receiver emits
+  `k8s.pod.cpu.utilization`, `k8s.node.cpu.utilization`, `k8s.pod.memory.usage`,
+  `k8s.node.memory.usage`, `k8s.pod.filesystem.available`, `k8s.node.filesystem.available`, and the
+  `*_limit_utilization` / `*_request_utilization` family: exactly the names in HyperDX's Kubernetes
+  dashboard (`KubernetesDashboardPage.tsx`) and its infrastructure panel. The panel also matches
+  the newer `.usage` names (`otelSemanticConventions.ts` maps both, threshold 0.125.0), but the
+  dashboard queries the old ones, which is why the collector is not newer. All of them landed in
+  `retail_otel.otel_metrics_gauge` from all 3 nodes. `k8s.pod.cpu_limit_utilization` is absent
+  because the pods have a memory limit but no CPU limit (the dashboard's CPU-limit column stays empty).
+- **`service.name` from the pod label** reaches the metrics (pod metrics are stored under
+  `demo-<role>`, `retail-demo-frontend`, `snowplow-micro`, `otel-gateway`, ...) and the stdout logs
+  of the pods that only print (producers, bridge, Micro, gateway, simulator as `loadgen`, backfill).
+- **No duplicate logs.** Frontend and demo-service logs arrive over OTLP only (0 stdout copies out
+  of 70 rows); the node collector's filelog still carries the pods that only print.
+- **Backfill Job:** 5,001,949 events (847,800 sessions, 20,412 orders, 10,027 card transactions) in
+  1 min 43 s, as 100,000-row inserts of ~7 MB on the wire, 48,000 to 77,000 events/s.
+- **Live generators** start and run (200 events/s, 20 transactions/s): `make generators-start` takes 3 s.
+- **Resource budget:** all four containers (3 nodes and the load balancer) together use **3.3 GiB**
+  with the generators and the simulator running, so the plan's 4 GB holds. Largest pods: Snowplow
+  Micro 474 MiB, simulator 269 to 626 MiB (4 browsers), frontend 90 MiB, the gateway 73 MiB, each
+  node collector 60 to 90 MiB, a demo service 40 to 50 MiB.
+- **Fault exercise:** `make break-card-gateway` makes the gateway answer
+  `502 {"error":"card_gateway_unavailable","retryable":true}` after 1.5 s; the span is an error and the
+  log line `journey failed role=card-gateway ... status=502` is in `otel_logs` as `demo-card-gateway`.
+  `make fix-card-gateway` brings it back. The failure shows in four services on the path (card-gateway,
+  payment-card-svc, checkout-svc, storefront-bff) as error logs and error spans, and the simulator's
+  `failed` counter rises only while the gateway is down.
+- **The plan's check "log search finds `card_gateway_unavailable`" did not hold at first**: the logs said
+  only `status=502`, the code was in no log body. The demo services now log `error=<the downstream's
+  answer>`, so the code is in the logs of all four services. Note for module 08: `_` is a separator for
+  ClickHouse's tokenizer, so `hasToken(Body, 'card_gateway_unavailable')` is an error and the text
+  index search is `hasAllTokens(Body, 'card gateway unavailable')` (4 rows in the check run); a
+  substring `ILIKE` finds it too.
+- **`make nuke-data`** (confirmed with `nuke`): stopped the generators and simulator, restored Postgres
+  (11 orders, 11 customers, 12 stock levels back to the seed), emptied 17 generated ClickHouse tables;
+  `make status` then showed Postgres at 2,000 orders and 500 customers and the CDC copy in step.
+
+### Bugs the live run found
+
+- **`k3d image import` reports success when it failed.** Every node answered `ctr: content digest
+  sha256:... not found`, and k3d still printed "Successfully imported" and exited 0, so the pods sat
+  in ImagePullBackOff (D33). It is the containerd image store (Docker 29, OrbStack, and Docker
+  Desktop's current default): `docker save` writes a multi-platform index whose other platforms are
+  not in the archive. The fix is `docker save --platform linux/<arch>` and a check on every node.
+- **A full Docker disk takes the whole cluster down (D34).** The Docker VM's disk was 96% full (most
+  of it other projects' images); all three kubelets reported DiskPressure, tainted their nodes and
+  evicted pods (one Deployment left 40 Evicted pods behind). At 85% they also garbage-collect
+  the imported images. `make doctor` now checks free disk, and `make images` refuses to start an
+  import that cannot fit.
+- **Helm turned `5000000` into `5e+06`** in the backfill Job; the producer's `int()` rejects that and
+  would have run forever (`PRODUCE_MAX_EVENTS=0`). The values go through `int64`.
+- **The Job went to the `default` namespace:** `helm template` does not stamp a namespace and
+  `kubectl apply` needs `-n`.
+- **`kubectl set env` and `helm upgrade` cannot share an env var.** The chart declared
+  `CARD_GATEWAY_DOWN` with a `secretKeyRef`; after `kubectl set env` made it a plain value, the next
+  `helm upgrade` failed (`valueFrom may not be specified when value is not empty`), which would have
+  broken `generators-stop`, `sim-stop` and `app` for anyone who had broken the gateway. The switch is
+  now a chart value (`cardGatewayDown`), set by `make break-card-gateway` through
+  `helm upgrade --reset-then-reuse-values`; an unrelated upgrade afterwards keeps it.
+- **The frontend's readiness probe took the storefront down with Postgres.** It queried
+  `/api/categories`; whenever Postgres was slow the single pod left the Service, and a Service with no
+  endpoints refuses every request, static pages included. The simulator saw it as
+  `ERR_CONNECTION_REFUSED` on `http://frontend:3000`. Readiness is now a TCP check; the database path
+  is what `make check-05` checks.
+- **A cached rebuild gets a new image ID** on the containerd image store (the config carries the
+  build time), so comparing IDs re-imported and restarted everything on every `make images`. Layers
+  plus config identify an image.
+- Smaller: `trap` on a function's local variable, `docker pull` takes one image per call,
+  zsh treats `=====` as a command.
+
+### Findings and judgment calls
+
+- **Why Chromium only (D40).** The Playwright image holds Chromium 556 MB, Firefox 218 MB and WebKit
+  222 MB, and every node would hold its own copy of the 2.9 GB image (about 3 GB unpacked each).
+  The new image is 1.5 GB, runs Chromium 125 (Playwright 1.44.0's build), and is loaded onto one node.
+  The plan's "consider bumping 1.44" stays open: it works.
+- **`clickshop-tools` is not loaded into the cluster.** Nothing in the cluster runs it; the plan
+  listed it.
+- **The simulator reaches the storefront as `http://frontend:3000`.** The pages use paths relative to
+  their own origin (the category hero images go through `proxyImageUrl`), so the build-time
+  `NEXT_PUBLIC_BASE_URL=http://localhost:3000` does not break a browser inside the cluster.
+- **Deviation from the plan on the fault exercise:** `break-card-gateway` is a Helm value, not
+  `kubectl set env` (see the bug above).
+- **Deviation from the plan on the Secret:** the 14 demo services do not read the Secret (D35); the
+  plan says all pods use `envFrom`.
+- **`make doctor` and `.env`.** It reads the file as written, never sources it, and flags a scheme
+  or port in a host, a quoted or commented value, CRLF line endings and the pooler port. A host is
+  shown as its first three characters plus the domain; a password only as its length.
+- **Postgres latency from where the owner works:** a connection takes about 0.9 s (TLS) and a query
+  about 275 ms. The frontend's 5 s connection timeout is therefore not generous, and a participant
+  far from the Postgres region will see slower pages.
+- **A network outage mid-run.** For several minutes TCP connections to the Cloud endpoints from this
+  machine took 7.6 s (ClickHouse) or timed out (Postgres), while other hosts answered in 40 ms.
+  The frontend logged `pg-pool.connect` timeouts and some simulator page waits timed out. Postgres
+  answered again shortly after the simulator was stopped, and showed 17 of 500 connections in use, so
+  it was not a limit on the service. Whether the simulator's load had anything to do with it, and what
+  was wrong on the network path, was not found out.
+- **`make nuke-data` does not truncate Postgres** (the ClickPipe does not replicate it): it deletes
+  the added orders and customers and restores the stock, then empties the generated ClickHouse tables.
