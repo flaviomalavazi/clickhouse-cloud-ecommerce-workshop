@@ -1,0 +1,5 @@
+clickhouse-connect==1.1.1
+confluent-kafka==2.14.2
+python-dotenv==1.0.1
+orjson==3.11.9
+boto3==1.35.71

@@ -1,0 +1,63 @@
+# ── Environment / secrets ─────────────────────────────────────────────────────
+# Never commit actual credentials — use .env.example as the template.
+.env
+.env.local
+.env.*.local
+.env.cloud
+.env.cloud.*
+.deploy.env
+frontend/.env.local
+frontend/.env.*.local
+data-generators/.env
+
+# ── Node.js ───────────────────────────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/build/
+frontend/tsconfig.tsbuildinfo
+frontend/.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── Generated data ────────────────────────────────────────────────────────────
+# Credit-card producer file/s3 sink output (NDJSON batches).
+data-generators/output/
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.log
+# Source JPEGs for the catalogue (~437 MB). Only the converted WebPs under
+# frontend/public/images/ are committed.
+assets/product_images/
+.clickhouse/
+
+# ── Local-only reference material ─────────────────────────────────────────────
+# The implementation plan and other working documents. Never committed.
+base_contents/
+
+# ── Workshop agent mode ───────────────────────────────────────────────────────
+# Per-participant progress file written by the guide agent (AGENTS.md).
+.workshop/

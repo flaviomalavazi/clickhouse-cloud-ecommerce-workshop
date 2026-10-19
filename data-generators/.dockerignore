@@ -1,0 +1,9 @@
+# Both images build with data-generators/ as their context, so keep it lean and
+# make sure nothing with credentials in it can end up in a layer.
+.env
+.env.*
+!.env.example
+output/
+**/__pycache__/
+**/*.pyc
+README.md

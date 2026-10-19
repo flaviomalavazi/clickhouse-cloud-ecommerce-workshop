@@ -1,0 +1,11 @@
+# Without this, every build transfers the full context (including
+# node_modules, reinstalled fresh via `npm ci` anyway) to the daemon before
+# it can even check the layer cache — hundreds of MB of unnecessary I/O on
+# every single build.
+node_modules
+.next
+.git
+npm-debug.log*
+.env*
+!.env.example
+*.tsbuildinfo

@@ -1,0 +1,46 @@
+/* Keyframes for the analytics effects. Scoped here so the storefront's
+   Tailwind config and global stylesheet stay untouched. */
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(-100% - var(--gap))); }
+}
+
+.marqueeTrack {
+  animation: marquee var(--duration) linear infinite;
+}
+
+.marquee:hover .pauseOnHover {
+  animation-play-state: paused;
+}
+
+/* A highlight that slides along a funnel bar, so the bars read as flow. */
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); }
+}
+
+.shimmer {
+  animation: shimmer 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marqueeTrack,
+  .shimmer {
+    animation: none;
+  }
+}
+
+/* Dashes that crawl along a navigation arc, in the direction people moved. */
+@keyframes flow {
+  to { stroke-dashoffset: -24; }
+}
+
+.flowDash {
+  stroke-dasharray: 4 8;
+  animation: flow 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flowDash { animation: none; }
+}

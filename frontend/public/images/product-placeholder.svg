@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title description">
+  <title id="title">ClickShop product placeholder</title>
+  <desc id="description">Neutral placeholder used when no product image CDN is configured.</desc>
+  <rect width="600" height="600" fill="#f1f0ea"/>
+  <path d="M178 218h244l-22 224H200z" fill="#fff" stroke="#20201e" stroke-width="12"/>
+  <path d="M245 238v-38c0-31 24-56 55-56s55 25 55 56v38" fill="none" stroke="#20201e" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="258" cy="326" r="12" fill="#ef5132"/>
+  <circle cx="342" cy="326" r="12" fill="#ef5132"/>
+  <path d="M258 374c24 22 60 22 84 0" fill="none" stroke="#20201e" stroke-width="10" stroke-linecap="round"/>
+  <text x="300" y="510" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#20201e">ClickShop</text>
+</svg>

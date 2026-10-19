@@ -1,0 +1,19 @@
+# Root build context. Keep it lean and make sure nothing with credentials in it
+# can end up baked into an image layer.
+.git
+.workshop/
+
+# Source product JPEGs (~437 MB); only the WebPs in frontend/public/images/ ship.
+assets/product_images/
+
+.env
+.env.*
+!.env.example
+
+**/__pycache__/
+**/*.pyc
+**/node_modules/
+frontend/.next/
+
+data-generators/.env
+data-generators/output/

@@ -1,0 +1,3 @@
+The Dockerfile's production stage does `COPY --from=builder /app/public ./public`,
+which fails the build outright when this directory does not exist. This
+placeholder keeps the directory tracked; product images live in public/images/.

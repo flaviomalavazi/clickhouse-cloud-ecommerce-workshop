@@ -1,0 +1,331 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Animated integers ────────────────────────────────────────────────────────
+   A registered custom property is the only way CSS can interpolate a number,
+   and `counter()` is the only way to print one. Together they animate a digit
+   readout with no rAF loop and no JS on the frame path — the compositor does it.
+
+   Kept at the top level: @property is not permitted inside a conditional rule,
+   and browsers have shipped bugs for it nested in @layer. */
+@property --tally {
+  syntax: '<integer>';
+  initial-value: 0;
+  inherits: false;
+}
+
+/* A real spring, expressed as an easing function rather than approximated by a
+   cubic-bezier. Sampled from a mass-spring solver (m 1, k 170, c 20), so the
+   overshoot and settle are the physical ones. */
+:root {
+  --ease-spring: linear(
+    0, 0.006, 0.026 2.6%, 0.106 5.4%, 0.427 13%, 0.545, 0.643, 0.723, 0.786,
+    0.836 26.3%, 0.897 30.6%, 0.937 35.2%, 0.962 40.2%, 0.977 45.6%,
+    0.99 55.2%, 0.997 69.5%, 1
+  );
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper-50 text-ink-800 antialiased;
+    /* Inter's disambiguated glyphs — single-storey a stays off, but the
+       straight-sided l and the tabular-friendly figures come on. */
+    font-feature-settings: 'cv05' 1, 'cv08' 1, 'ss03' 1;
+  }
+
+  /* Browser surfaces the design still owns. */
+  ::selection {
+    @apply bg-brand-400 text-ink-900;
+  }
+
+  :root {
+    caret-color: theme('colors.ink.900');
+    accent-color: theme('colors.brand.600');
+    scrollbar-color: theme('colors.paper.300') transparent;
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-transparent bg-paper-300 bg-clip-content;
+  }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ink-300; }
+
+  /* One focus treatment for the whole app, legible on paper and on ch-900. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-paper;
+  }
+  .on-dark :focus-visible,
+  .dark-surface :focus-visible {
+    @apply ring-brand-400 ring-offset-ch-900;
+  }
+
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+
+  /* Prices, quantities and totals are measurement — they get mono figures of
+     one width so columns of numbers stop dancing. */
+  .numeric {
+    @apply font-mono tabular-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: -0.02em;
+  }
+
+  a { text-underline-offset: 0.2em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* ── Buttons ──────────────────────────────────────────────────────────────
+     One geometry, three intents. Yellow carries ink; dark carries white; the
+     ghost carries a rule. */
+  .btn {
+    /* Disabled is a flat neutral, never a faded brand colour: yellow at 50%
+       opacity on paper reads as a rendering fault rather than as "off". */
+    @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold
+           px-4 py-2.5 text-sm leading-none whitespace-nowrap
+           transition-all duration-200 ease-expo
+           disabled:pointer-events-none disabled:bg-paper-100 disabled:text-ink-400
+           disabled:border-transparent disabled:shadow-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand-400 text-ink-900 hover:bg-brand-300 hover:shadow-brand
+           active:scale-[0.98] active:bg-brand-500;
+  }
+  .btn-secondary {
+    @apply btn bg-paper text-ink-800 border border-line-strong
+           hover:border-ink-900 hover:bg-paper-50 active:scale-[0.98];
+  }
+  .btn-dark {
+    @apply btn bg-ink-900 text-paper hover:bg-ink-800 active:scale-[0.98];
+  }
+  .btn-ghost-dark {
+    @apply btn bg-transparent text-ch-100 border border-ch-600
+           hover:border-brand-400 hover:text-brand-400 active:scale-[0.98];
+  }
+  .btn-lg {
+    @apply px-6 py-3.5 text-base rounded-xl;
+  }
+
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  .card {
+    @apply bg-paper rounded-lg border border-line overflow-hidden;
+  }
+  .panel {
+    @apply bg-paper rounded-xl border border-line shadow-tile;
+  }
+
+  /* ── Form fields ──────────────────────────────────────────────────────── */
+  .field {
+    @apply w-full rounded-lg border border-line-strong bg-paper
+           px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-400
+           transition-colors duration-150
+           hover:border-ink-300 focus:border-ink-900 focus:outline-none
+           focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2;
+  }
+
+  /* ── Badges ───────────────────────────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded px-1.5 py-0.5
+           text-[0.6875rem] font-bold uppercase leading-none tracking-wide;
+  }
+  .badge-discount {
+    @apply badge bg-brand-400 text-ink-900 numeric tracking-normal;
+  }
+  .badge-outofstock {
+    @apply badge bg-ink-900/85 text-paper backdrop-blur-[2px];
+  }
+  .badge-quiet {
+    @apply badge bg-paper-100 text-ink-600 border border-line;
+  }
+
+  /* ── Section heading ──────────────────────────────────────────────────────
+     A short yellow slab sits above the title — the brand mark in the type
+     hierarchy, standing in for the eyebrow label it replaces. */
+  .section-rule {
+    @apply block h-[3px] w-10 bg-brand-500 mb-4;
+  }
+
+  /* ── Animated integer readout ─────────────────────────────────────────────
+     Set `--tally` inline and the digits count to it.
+
+     Both the counter and the transition have to sit on the element that owns
+     the property, not on the pseudo-element. `--tally` is registered with
+     `inherits: false`, so `::after` resolves it to the initial 0 and never sees
+     a change — declaring either here leaves the readout pinned at zero with no
+     animation, which is exactly what it did on the first attempt. The pseudo
+     only prints the counter, which *does* inherit down the tree. */
+  .tally {
+    counter-reset: tally var(--tally);
+    transition: --tally 900ms var(--ease-out-quint);
+  }
+  .tally::after {
+    content: counter(tally);
+  }
+
+  /* ── Loading ──────────────────────────────────────────────────────────── */
+  .skeleton {
+    @apply relative overflow-hidden bg-paper-100;
+  }
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    content: '';
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.75),
+      transparent
+    );
+  }
+}
+
+@layer utilities {
+  /* Horizontal scrollers fade at both edges instead of clipping mid-word. */
+  .edge-fade {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 20px,
+      #000 calc(100% - 24px),
+      transparent 100%
+    );
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Lets a card carry one link over its whole face without nesting the
+     add-to-cart button inside an anchor. */
+  .stretched-link::after {
+    @apply absolute inset-0 z-10;
+    content: '';
+  }
+
+  .ease-spring { transition-timing-function: var(--ease-spring); }
+
+  /* Media that settles in on arrival rather than snapping. */
+  .enter-media { @apply animate-media-in; }
+}
+
+/* ── View Transitions ─────────────────────────────────────────────────────────
+   Same-document only. Search results re-render as the visitor types, and a
+   plain re-render throws the grid away and repaints it; with a transition, a
+   product that survives into the next result set slides to its new cell and
+   the rest cross-fade under it. Progressive by construction: without
+   `startViewTransition` the state update just applies. */
+/* Cross-document, so a click on a product card is a continuation rather than a
+   page load: the card's image and title carry the same transition names as the
+   product page's hero and h1, and the browser tweens between them across the
+   navigation. Only ONE card may hold those names at a time — a duplicate name
+   aborts the whole transition — which is why ProductCard stamps them on click
+   and clears them on the way back (see stampMorph there).
+
+   No Firefox for cross-document yet, and no fallback needed: a browser that
+   does not understand this rule navigates normally, which is the behaviour
+   every visitor had before. */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-group(*) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease-out-quint);
+}
+
+/* The hero morph gets longer than the grid shuffle. A card growing into a
+   full-bleed product image travels much further than a card sliding one cell,
+   and at 260ms that distance reads as a jump rather than a move. */
+::view-transition-group(product-hero) {
+  animation-duration: 460ms;
+}
+
+::view-transition-group(product-title) {
+  animation-duration: 380ms;
+}
+
+/* The image is cropped square in the card and 1:1 on the product page, but the
+   two boxes have different sizes, so the default `object-fit` crossfade shows
+   both snapshots stretched. Holding them at their own aspect ratio and letting
+   the group resize is what makes it read as one photograph moving. */
+::view-transition-old(product-hero),
+::view-transition-new(product-hero) {
+  height: 100%;
+  object-fit: cover;
+  animation: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  /* The root snapshot would cross-fade the whole page under the moving cards,
+     which reads as a flash. Only the named elements should animate. */
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+  .tally { transition: none; }
+}
+
+/* ── Scroll-driven reveal ─────────────────────────────────────────────────────
+   A product grid is long. Entering the cards on page load animates rows the
+   visitor cannot see yet and finishes before they scroll to them, so the effect
+   is spent on nobody; tying it to the card's own position means each row
+   resolves as it arrives.
+
+   `animation-timeline: view()` runs on the compositor with no JS, no observer
+   and no scroll listener, so a 900-row category costs the main thread nothing.
+
+   The default is the FINISHED state — opaque, unblurred, in place. Everything
+   below only ever overrides that, so a browser without scroll timelines
+   (Firefox, where it is behind a flag) shows the full grid rather than a page
+   of invisible cards waiting for an animation that will never run. That is the
+   whole reason the rule is written in this direction. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes card-arrive {
+      from {
+        opacity: 0;
+        /* Blur and a sub-pixel lift, not a slide: the card is resolving into
+           focus rather than flying in from off-screen, which keeps a grid of
+           twenty from reading as a carousel. */
+        filter: blur(6px);
+        transform: translate3d(0, 1rem, 0) scale(0.985);
+      }
+    }
+
+    .reveal-grid > * {
+      animation: card-arrive linear both;
+      animation-timeline: view();
+      /* Starts as the card's top edge enters and completes well before it
+         centres, so a card is never still resolving once it can be read. */
+      animation-range: entry 0% entry 45%;
+    }
+  }
+}
