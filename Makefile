@@ -34,7 +34,7 @@ pg-reset: check-env tools-image ## Truncate every Postgres table and reseed
 	@$(TOOLS_RUN) python /app/tools/seed_postgres.py --reset
 
 psql: check-env tools-image ## Open psql on the workshop database
-	@$(TOOLS_TTY) sh -c 'PGSSLMODE="$${PGSSLMODE:-require}" exec psql'
+	@$(TOOLS_TTY) sh -c 'if [ -n "$$PGSSLROOTCERT" ]; then : "$${PGSSLMODE:=verify-full}"; else : "$${PGSSLMODE:=require}"; fi; export PGSSLMODE; exec psql'
 
 # ── ClickHouse (modules 01, 04, 06) ──────────────────────────────────────────
 ch-bootstrap: check-env tools-image ## Create the databases and the clickstream tables (idempotent)

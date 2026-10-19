@@ -9,6 +9,7 @@
 frontend/.env.local
 frontend/.env.*.local
 data-generators/.env
+*.pem
 
 # ── Node.js ───────────────────────────────────────────────────────────────────
 node_modules/

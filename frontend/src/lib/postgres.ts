@@ -1,6 +1,33 @@
-import { Pool } from 'pg';
+import fs from 'node:fs';
+import { Pool, type PoolConfig } from 'pg';
 
 let pool: Pool | undefined;
+
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', 'postgres'];
+
+/**
+ * TLS settings, following libpq's PGSSLMODE / PGSSLROOTCERT.
+ *
+ * With PGSSLROOTCERT the server certificate is checked against that CA bundle:
+ * `verify-full` (the default then) also checks the hostname, `verify-ca` only
+ * the chain. Without it a remote host still gets an encrypted connection, but
+ * the server is not authenticated. The path is read as given, so in a pod it
+ * is the absolute path the chart mounts the certificate at.
+ */
+function sslConfig(host: string | undefined): PoolConfig['ssl'] {
+  const mode = process.env.PGSSLMODE?.trim();
+  const rootCert = process.env.PGSSLROOTCERT?.trim();
+
+  if (mode === 'disable') return false;
+  if (rootCert && mode !== 'require' && mode !== 'prefer' && mode !== 'allow') {
+    const ca = fs.readFileSync(rootCert, 'utf8');
+    return mode === 'verify-ca'
+      ? { ca, rejectUnauthorized: true, checkServerIdentity: () => undefined }
+      : { ca, rejectUnauthorized: true };
+  }
+  if (host && !LOCAL_HOSTS.includes(host)) return { rejectUnauthorized: false };
+  return false;
+}
 
 export function getPool(): Pool {
   if (!pool) {
@@ -12,9 +39,7 @@ export function getPool(): Pool {
       user:     process.env.PGUSER,
       password: process.env.PGPASSWORD,
       database: process.env.PGDATABASE,
-      ssl:      process.env.PGHOST && !['localhost', '127.0.0.1', 'postgres'].includes(process.env.PGHOST)
-                  ? { rejectUnauthorized: false }
-                  : false,
+      ssl:      sslConfig(process.env.PGHOST),
       // A single category page render issues three queries in parallel, and the
       // traffic simulator drives that concurrently with product and API traffic,
       // so 10 connections was reachable as a ceiling. Once the pool is exhausted
