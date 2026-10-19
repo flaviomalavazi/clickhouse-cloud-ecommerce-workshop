@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels: {{- include "clickshop.podLabels" (dict "name" "frontend" "serviceName" "retail-demo-frontend" "otlpLogs" true) | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels: {{- include "clickshop.selectorLabels" "frontend" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "clickshop.podLabels" (dict "name" "frontend" "serviceName" "retail-demo-frontend" "otlpLogs" true) | nindent 8 }}
+    spec:
+      containers:
+        - name: frontend
+          image: {{ include "clickshop.image" (dict "name" "clickshop-frontend" "root" .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The pod must listen on every interface: the standalone server binds to
+          # $HOSTNAME, which in a pod is the pod's own name.
+          #
+          # The Postgres CA certificate, when `make secrets` created one, is
+          # mounted below. PGSSLROOTCERT in .env is a path on the participant's
+          # machine, so inside the pod it is replaced by the mounted file; without
+          # a certificate it is unset and the connection falls back to `require`.
+          command: ["sh", "-c"]
+          args:
+            - |
+              if [ -f /etc/clickshop/pg-ca/ca.pem ]; then
+                export PGSSLROOTCERT=/etc/clickshop/pg-ca/ca.pem
+              else
+                unset PGSSLROOTCERT
+              fi
+              exec node server.js
+          ports:
+            - { name: http, containerPort: 3000 }
+          envFrom: {{- include "clickshop.envFrom" . | nindent 12 }}
+          env:
+            - { name: HOSTNAME, value: "0.0.0.0" }
+            - { name: PORT, value: "3000" }
+            - { name: STOREFRONT_BFF_URL, value: "http://storefront-bff:8000" }
+            - { name: SNOWPLOW_MICRO_URL, value: "http://snowplow-micro:9090" }
+            - { name: OTEL_COLLECTOR_METRICS_URL, value: {{ .Values.telemetry.metricsUrl | quote }} }
+            - { name: PGPOOL_MAX, value: {{ .Values.frontend.pgPoolMax | quote }} }
+            {{- include "clickshop.otlpEnv" . | nindent 12 }}
+            {{- include "clickshop.k8sEnv" . | nindent 12 }}
+          volumeMounts:
+            - { name: pg-ca, mountPath: /etc/clickshop/pg-ca, readOnly: true }
+          startupProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 2
+            failureThreshold: 60
+          # A cheap query: the pod is ready when it can reach Postgres.
+          readinessProbe:
+            httpGet: { path: /api/categories, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 20
+            failureThreshold: 3
+          resources: {{- toYaml .Values.frontend.resources | nindent 12 }}
+      volumes:
+        - name: pg-ca
+          secret:
+            secretName: {{ .Values.postgresCASecretName }}
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels: {{- include "clickshop.selectorLabels" "frontend" | nindent 4 }}
+spec:
+  selector: {{- include "clickshop.selectorLabels" "frontend" | nindent 4 }}
+  ports:
+    - { name: http, port: 3000, targetPort: http }
+---
+# Traefik (the k3s default) answers on the load balancer's port 80, which k3d
+# publishes as localhost:3000. No host rule, so any hostname reaches the storefront.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  labels: {{- include "clickshop.selectorLabels" "frontend" | nindent 4 }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port: { name: http }

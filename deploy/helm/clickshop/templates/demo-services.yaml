@@ -1,0 +1,64 @@
+{{- /* One Deployment and one Service per role. The Service is named after the
+role, which is what the services call: http://<role>:8000 */}}
+{{- range .Values.demoServices }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .role }}
+  labels: {{- include "clickshop.podLabels" (dict "name" .role "serviceName" (printf "demo-%s" .role) "otlpLogs" true) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "clickshop.selectorLabels" .role | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "clickshop.podLabels" (dict "name" .role "serviceName" (printf "demo-%s" .role) "otlpLogs" true) | nindent 8 }}
+    spec:
+      containers:
+        - name: demo-service
+          image: {{ include "clickshop.image" (dict "name" "clickshop-demo-service" "root" $) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - { name: http, containerPort: 8000 }
+          env:
+            - { name: DEMO_ROLE, value: {{ .role | quote }} }
+            - { name: DEMO_LATENCY_MS, value: {{ .latencyMs | default 15 | quote }} }
+            {{- range $name, $value := .extraEnv }}
+            - { name: {{ $name }}, value: {{ $value | quote }} }
+            {{- end }}
+            {{- /* Keys that may or may not be in .env (CARD_GATEWAY_DOWN): the pod
+                   gets only these, never the database credentials. The fault switch
+                   (`make break-card-gateway`) sets cardGatewayDown, which wins over .env.
+                   It is a chart value and not `kubectl set env`: that would turn this
+                   entry into a plain value and the next `helm upgrade` could not merge it. */}}
+            {{- range .fromSecret }}
+            {{- if and (eq . "CARD_GATEWAY_DOWN") (not (kindIs "invalid" $.Values.cardGatewayDown)) }}
+            - { name: CARD_GATEWAY_DOWN, value: {{ $.Values.cardGatewayDown | toString | quote }} }
+            {{- else }}
+            - name: {{ . }}
+              valueFrom:
+                secretKeyRef: { name: {{ $.Values.secretName }}, key: {{ . }}, optional: true }
+            {{- end }}
+            {{- end }}
+            {{- include "clickshop.otlpEnv" $ | nindent 12 }}
+            {{- include "clickshop.k8sEnv" $ | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 20
+            failureThreshold: 3
+          resources: {{- toYaml $.Values.demoService.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .role }}
+  labels: {{- include "clickshop.selectorLabels" .role | nindent 4 }}
+spec:
+  selector: {{- include "clickshop.selectorLabels" .role | nindent 4 }}
+  ports:
+    - { name: http, port: 8000, targetPort: http }
+{{- end }}

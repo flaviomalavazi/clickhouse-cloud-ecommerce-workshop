@@ -1,0 +1,33 @@
+{{- if .Values.producers.enabled }}
+{{- range $name, $script := dict "producer-web" "web_events.py" "producer-cc" "credit_card.py" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: {{- include "clickshop.podLabels" (dict "name" $name "serviceName" $name) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "clickshop.selectorLabels" $name | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "clickshop.podLabels" (dict "name" $name "serviceName" $name) | nindent 8 }}
+    spec:
+      containers:
+        - name: producer
+          image: {{ include "clickshop.image" (dict "name" "clickshop-producers" "root" $) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command: ["python", "-u", {{ $script | quote }}]
+          envFrom: {{- include "clickshop.envFrom" $ | nindent 12 }}
+          env:
+            # A pod sees the node's CPU count, not its limit, so the worker count is explicit.
+            {{- if eq $name "producer-web" }}
+            - { name: PRODUCE_WORKERS, value: {{ $.Values.producers.workers | quote }} }
+            {{- else }}
+            - { name: CC_WORKERS, value: {{ $.Values.producers.workers | quote }} }
+            {{- end }}
+            {{- include "clickshop.k8sEnv" $ | nindent 12 }}
+          resources: {{- toYaml $.Values.producers.resources | nindent 12 }}
+{{- end }}
+{{- end }}

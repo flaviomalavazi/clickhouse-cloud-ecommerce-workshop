@@ -1,0 +1,45 @@
+# The cluster collector: one pod for the whole cluster (a Deployment) that reads
+# Kubernetes events and cluster-wide metrics (node counts, pod phases, deployment
+# status) and forwards them to the ClickStack gateway in the clickshop namespace.
+#
+# From the ClickStack guide "Monitoring Kubernetes with Managed ClickStack"
+# (the Deployment file), with the exporter pointing straight at the in-cluster
+# gateway: no auth header and no ConfigMap.
+mode: deployment
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: 0.123.0
+
+# We only want one of these collectors - any more and we'd produce duplicate data
+replicaCount: 1
+
+presets:
+  kubernetesAttributes:
+    enabled: true
+    extractAllPodLabels: true
+    extractAllPodAnnotations: true
+  # Kubernetes events, through the k8sobjects receiver.
+  kubernetesEvents:
+    enabled: true
+  # Cluster-level metrics, through the k8s_cluster receiver.
+  clusterMetrics:
+    enabled: true
+
+resources:
+  requests: { cpu: 50m, memory: 128Mi }
+  limits: { memory: 256Mi }
+
+config:
+  exporters:
+    otlphttp:
+      endpoint: "http://otel-gateway.clickshop.svc:4318"
+      compression: gzip
+  service:
+    pipelines:
+      logs:
+        exporters:
+          - otlphttp
+      metrics:
+        exporters:
+          - otlphttp
