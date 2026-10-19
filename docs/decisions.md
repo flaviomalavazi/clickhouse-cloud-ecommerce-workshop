@@ -50,6 +50,7 @@ and the change is written down below.
 | D40 | The simulator image is **Chromium only** (1.5 GB, `python:3.12-slim-bookworm` plus `playwright install --with-deps chromium`, Playwright still 1.44.0) instead of the 2.9 GB official image with three browsers. It is loaded onto **one** node, labelled `clickshop/simulator-image`, which the chart's `nodeSelector` asks for. `clickshop-tools` is not loaded into the cluster: it only runs through `docker run`. | Proposed |
 | D41 | `.env.example` no longer lists `SIM_SESSIONS` (amends D31): the number of browsers is `make sim-start USERS=n`, because it sets the pod's memory limit as well. | Proposed |
 | D42 | `make nuke-data` reseeds Postgres from scratch (TRUNCATE and the seed) and empties the `retail_oltp` mirror tables in ClickHouse, so the ClickPipe ingests the seed again from empty. It **never touches the web analytics events, the card transactions, the rollups built from them or the ClickStack telemetry** (`retail_otel`): they are slow to rebuild. The order matters because the ClickPipe ignores TRUNCATE: wait for the pipe to catch up, empty the mirror (not the pipe's own `_peerdb_` tables), reseed Postgres, wait for the mirror to fill, then refresh `products_search`. Without a ClickPipe only Postgres is reseeded. This is the owner's rule; the first version emptied the events and telemetry and was wrong. | Confirmed |
+| D43 | The workshop sells **only the products the catalogue marks active**. `is_active` in the seed is the catalogue's own `is_active` AND NOT `flagged_for_deletion` AND an image exists (the catalogue's `is_active` used to be ignored). The repo carries images **only for those products**: `assets/scripts/build_images.py` converts exactly them (`--prune` removes the rest), and a test fails if an image of a deactivated product, or a missing image of an active one, is in the repo. `assets/catalog_details/catalog.json` is kept untouched as the reference, and every catalogue product is still seeded (so the catalogue ids stay stable), the deactivated ones as inactive rows on the placeholder image. | Confirmed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -545,3 +546,40 @@ two minutes) and `make generators-start` rebuild the events, and traffic through
 the telemetry, but the history that was there before is not recoverable from here. The first fix
 removed only orders and inventory from Postgres (DELETE/UPDATE) and left ClickHouse alone; the owner
 then asked for the `retail_oltp` mirror to be emptied as well, since the pipe re-ingests a reseed.
+
+## Phase 6: end-to-end acceptance
+
+### Catalogue: only active products (D43)
+
+- **What changed.** The catalogue (978 products) marks 211 `is_active: false` and flags 61 for deletion
+  (the two overlap), and 31 products have no photo. The seed used to ignore `is_active`, so 887 products
+  were active; it now honours it, so **691 are active and 287 are not**. The 256 WebPs of deactivated
+  products that had one were removed from `frontend/public/images/` (947 images, 16.6 MiB, became 691 images,
+  10.1 MiB), and `make images-webp` no longer recreates them. The source JPEGs in `assets/product_images/`
+  are gitignored and local, so they were not touched.
+- **Still seeded.** The 287 deactivated products stay in Postgres as rows with `is_active = false` and the
+  placeholder image, so the catalogue ids do not shift and module 02 can show a soft-delete flag. Dropping
+  them from the seed altogether would be a small change in `seed_products`; it would turn the 978-row tables
+  into 691-row ones.
+- **Seed output changes.** The seed is deterministic, but the products that orders and low stock are drawn from
+  changed: `order_items` went from 6,041 to 5,989 rows, and the 30 low-stock products are different ones.
+  Orders (2,000), customers (500) and stock rows (978) keep their counts.
+- **Checked against the real services** (after `make nuke-data` reseeded them): `products_search` holds 978
+  rows, 691 active; active products per category are books 157, clothing 151, electronics 147, IT accessories 177
+  and **shoes 59** (the catalogue deactivated most shoes: 192 became 59, five pages of 12; the simulator pages
+  "as far as it goes", so a shorter listing is fine). No deactivated row has a real image, no active row is on
+  the placeholder, and no seeded order contains a deactivated product. The five category hero photos
+  (ids 127, 144, 1, 605, 501) are all active.
+- **Search did not lose coverage.** For the simulator's 20 terms in en, pt and es, no term that had results
+  before has none now. The terms with no results are the same ones as before (eight in English, for example
+  "laptop bag", "yoga mat", "smartwatch"), which module 08's "searches that returned nothing" can use.
+- **The storefront**, the production image run against the real databases: the five hero images answer 200,
+  `/images/101.webp` (a deactivated product) answers 404, shoes page 1 has 12 items, page 5 has 11 and page 6
+  none, "sneakers" finds 2 and "hoodie" 35. A deactivated product's page renders Next.js's not-found view
+  (no add-to-cart, `noindex`) with HTTP 200, because the response streams; checkout rejects it either way.
+- **Not changed: git history.** The removed images are still in the history of the earlier phases. Removing
+  them from history would mean rewriting merged commits, which I did not do.
+- **Tests.** `make test` now mounts the repo and runs five catalogue tests (57 in all): the activity rule,
+  images only for active products, no unknown image files, the hero ids exist, and every category keeps at
+  least 36 active products. Putting one deactivated product's image back makes it fail.
+
