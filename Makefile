@@ -69,7 +69,7 @@ ch-client: check-env ## Open clickhouse-client on the service (uses the official
 	  'exec clickhouse-client --host "$$CLICKHOUSE_HOST" --port $(CLICKHOUSE_NATIVE_TLS_PORT) --secure --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD"'
 
 test: tools-image ## Run the Python unit tests (tools, Snowplow bridge, generators)
-	@docker run --rm $(TOOLS_IMAGE) python -m pytest /app/tools -q
+	@docker run --rm -v "$(CURDIR)":/workspace:ro $(TOOLS_IMAGE) python -m pytest /app/tools -q
 	@docker build -q -t clickshop-snowplow-bridge snowplow-bridge >/dev/null
 	@docker run --rm -v "$(CURDIR)/snowplow-bridge":/app -w /app clickshop-snowplow-bridge \
 	  sh -c 'pip install -q --disable-pip-version-check --root-user-action=ignore pytest && python -m pytest -q'
@@ -193,7 +193,7 @@ nuke-data: check-env tools-image ## Reseed Postgres and let the ClickPipe re-ing
 
 # ── Maintainer only ──────────────────────────────────────────────────────────
 images-webp: ## Regenerate frontend/public/images from assets/product_images (needs: pip install pillow)
-	python3 assets/scripts/build_images.py assets/product_images frontend/public/images
+	python3 assets/scripts/build_images.py assets/product_images frontend/public/images --prune
 
 dev-frontend: ## Run the frontend with npm on this machine, reading .env (needs node and npm)
 	@scripts/with-env.sh npm --prefix frontend run dev

@@ -19,9 +19,11 @@ What is loaded:
 
 Product details that are not in the catalogue:
   - price      generated per product id, 9.99-499.99, ~40% with an original_price
-  - is_active  NOT flagged_for_deletion AND an image exists in
-               frontend/public/images. The catalogue's own `is_active` is
-               ignored (the live demo ignored it too).
+  - is_active  the catalogue's own `is_active` AND NOT flagged_for_deletion AND
+               an image exists in frontend/public/images. Products that fail the
+               test are still seeded (the catalogue ids stay stable), as inactive
+               rows with the placeholder image; the storefront never shows them and
+               the repo carries no image for them (see is_active_product).
   - sku        the catalogue repeats SKUs across different products, but
                products.sku is UNIQUE. The lowest id keeps the catalogue SKU and
                every later duplicate gets "-<id>" appended.
@@ -110,6 +112,18 @@ def apply_schema(conn) -> None:
         print(f"applied {path.relative_to(ROOT)} ({n} statements)")
 
 
+def is_active_product(entry: dict, images: set[int]) -> bool:
+    """
+    Whether the workshop sells a catalogue product.
+
+    The catalogue marks 211 products `is_active: false` and 61 `flagged_for_deletion`, and
+    some products have no photo. Only the products that pass all three tests are active;
+    they are the only ones that have an image in the repo (assets/scripts/build_images.py
+    converts exactly these), so `images` holds the active ids and nothing else.
+    """
+    return bool(entry.get("is_active")) and not entry.get("flagged_for_deletion") and entry["id"] in images
+
+
 def seed_stock(entries: list[dict], active: list[int]) -> dict[int, int]:
     """The starting stock of every catalogue product (30 active ones start low)."""
     low_stock = set(rng_for("lowstock").sample(sorted(active), N_LOW_STOCK))
@@ -134,7 +148,7 @@ def seed_products(conn, entries: list[dict], images: set[int]) -> tuple[list[int
         for e in entries:
             pid = e["id"]
             has_image = pid in images
-            is_active = (not e.get("flagged_for_deletion")) and has_image
+            is_active = is_active_product(e, images)
             if is_active:
                 active.append(pid)
 
