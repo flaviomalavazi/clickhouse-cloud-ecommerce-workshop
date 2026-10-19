@@ -30,6 +30,11 @@ and the change is written down below.
 | D20 | Images are built locally and loaded with `k3d image import`. Publishing prebuilt multi-arch images to GHCR is an optional later step that needs the owner's approval, because it publishes externally. | Proposed |
 | D21 | **One root `.env` holds every credential and setting.** It covers the ClickHouse service, Managed Postgres and optional tuning. Every component reads it, through the Makefile, `docker run --env-file`, or the k8s Secret built from it. Participants, and the implementer's test setup, fill in that one place only. | Confirmed |
 | D22 | The workshop repo starts with a **fresh git history**. The owner clones this repo to a new local folder and points it at a new remote; the history is re-initialised (Phase 0). | Confirmed |
+| D23 | The catalogue repeats SKUs across different products (147 SKUs on 479 rows), but `products.sku` is `UNIQUE`. The seed keeps the catalogue SKU for the lowest id and appends `-<id>` to every later duplicate (332 of 978 rows). | Proposed |
+| D24 | `retail_oltp` is created by `sql/clickhouse/00_databases.sql`, not by the ClickPipe wizard, so the wizard always finds it. The tables inside it still come from the ClickPipe. | Proposed |
+| D25 | Product search folds accents inside the text-index preprocessor (NFD-decompose, drop combining marks), so "tenis" finds "tênis". | Proposed |
+| D26 | The `clickshop-tools` image has no ClickHouse client binary (the whole ~800 MB server). `make ch-client` runs the pinned official server image instead. | Proposed |
+| D27 | The Makefile never parses `.env`: it hands the file to containers with `docker run --env-file`. `.env.example` keeps comments on their own lines. | Proposed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -105,3 +110,75 @@ and the change is written down below.
 - **Not run, not applicable yet:** `helm lint` / `helm template` (no chart until Phase 5; `helm` and
   `k3d` are not installed on this machine), and Python tests (the only test file was deleted with
   backend mode).
+
+## Phase 2: data layer
+
+### Verify results
+
+- **Refreshable MV, non-APPEND, with a `TO` table.** Each refresh atomically replaces the target:
+  its table UUID changes (an `EXCHANGE`), and the text indexes are built on the new data. Checked
+  with CDC-style changes (a stock update, a delete, a rename, a new product): after
+  `SYSTEM REFRESH VIEW` all four showed up, a new term was found through `idx_search_en`
+  (`EXPLAIN indexes = 1` lists it under `Skip`), and the refresh took 33 ms for 978 rows.
+- **Text index (ClickHouse 26.9.19.9):** the syntax in the plan works as written.
+  `hasAllTokens` and `hasAnyTokens` apply the index preprocessor to the term, so `USB-C`, `RUNNING`
+  and `tênis` need no special handling. `system.view_refreshes` has no `refresh_count`; the
+  columns are `view, status, last_success_time, last_success_duration_ms, last_refresh_time,
+  next_refresh_time, exception, progress, read_rows, written_rows, ...`.
+- **Accent folding is possible in the preprocessor** (the plan's condition for doing it):
+  `lower(replaceRegexpAll(normalizeUTF8NFD(col), '\\p{M}', ''))`. "tenis" and "tênis" both return
+  192 products; "CÁMARA" finds "cámara".
+- **`products_search` row count.** `count()` is 978 (every non-deleted product), not the active
+  count: the table keeps `is_active` as a column and readers filter on it. Active products: 887.
+
+### Findings and judgment calls
+
+- **Category hero `148` has no source image.** The plan requires `148.webp`, but there is no
+  `image_148.jpg` (31 catalogue entries have no photo). IT Accessories now uses **605** ("Voxa
+  Webcam", 1408x768 like the other heroes), set in `frontend/src/lib/constants.ts`.
+- **Duplicate SKUs** (D23). Dropping `UNIQUE` would have let the data weaken the schema.
+- **`is_active`** is `NOT flagged_for_deletion AND image exists`: **887 active** of 978 products.
+  61 entries are flagged (60 of them have an image) and 31 have no image; 31 products point at
+  `product-placeholder.svg`. Those 61 flagged entries are also the ones with no pt/es text; their
+  locale columns are NULL and the frontend falls back to English.
+- **Historical orders are never `pending`** unless they are under an hour old (D15). The plan only
+  says "weighted statuses"; keeping the old 10% pending would have started the table with ~200
+  orders stuck since last year.
+- **Seed is deterministic.** Two builds (`pg-setup`, then `pg-reset`) hash identically. Prices,
+  stock, customers and orders all derive from `SEED_RANDOM_SEED` (default 42) and the id.
+- **Dropped three redundant indexes** from the old schema (`idx_products_sku`, `idx_stock_product`,
+  `idx_customers_email`): each duplicated the index behind a `UNIQUE` constraint.
+- **`postgres.ts` search_path hook removed here, not in Phase 3.2.** With D13 (database `clickshop`,
+  schema `public`) the hook ran `SET search_path TO "clickshop"`, a schema that does not exist, so
+  nothing could be read. Phase 2's "images render locally" check needs it gone.
+- **`LIVE_FEED_QUERY` never used `FINAL`**: it reads `products_search` with `any(name) ... GROUP BY`.
+  Only the text-search route and the web producer's `load_catalog()` had one; both are fixed.
+- **`.env` handling** (D27). In the plan's `.env.example` layout, `KEY=   # comment` puts the comment in
+  the value for both `docker --env-file` and make, and `include .env` would break a password
+  containing `$` or `#`. The final `.env.example` is written to the §5.4 layout with comments on
+  their own lines, and Phase 5 should keep reading `.env` as `--env-file` / `--from-env-file`
+  rather than through make or a shell `source`.
+- **`clickshop-tools` image is 391 MB** (Python 3.12, `psql` 17, pinned libraries). Phase 5.2 lists it
+  among the images to `k3d image import`; it is only used through `docker run`, so it probably
+  does not need importing.
+- **Interim files removed.** `scripts/seed/` and `scripts/migrations/` are gone; `sql/` and `tools/`
+  replace them. Old READMEs still point at the old paths until Phase 7.
+
+### What was verified, and how
+
+All of Phase 2's data checks ran against **local test containers** (Postgres 18, ClickHouse 26.9),
+because no root `.env` with Cloud credentials exists yet. Local runs covered: `make pg-setup`
+(run twice, then `pg-reset`), `make ch-bootstrap` (twice), `make ch-search` (twice), `make ch-mvs`
+(twice, with a backfill that did not double count), every statement in `sql/clickhouse/examples/`,
+the splitter's unit tests, and the frontend (`npm run dev`) reading the seeded data.
+
+**Not verified yet (needs the owner's Cloud service and Managed Postgres in `.env`):**
+
+- `make pg-setup` and `make ch-bootstrap` against Managed Postgres and ClickHouse Cloud, including
+  the direct endpoint on port 5432 and the TLS defaults.
+- The columns and types a real Postgres CDC ClickPipe creates in `retail_oltp`. The test used a
+  simulation of the documented shape (`ReplacingMergeTree(_peerdb_version)`, `_peerdb_is_deleted`,
+  non-nullable types). `10_products_search.sql` casts every column, so small type differences
+  should not matter, but run `SHOW CREATE TABLE retail_oltp.products` after the first pipe.
+- That the wizard accepts a pre-created `retail_oltp` database (D24).
+- `SELECT version()` on a fresh Cloud service is 26.2 or newer.

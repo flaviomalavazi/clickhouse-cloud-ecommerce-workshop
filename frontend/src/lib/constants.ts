@@ -27,16 +27,13 @@ export function proxyImageUrl(url: string): string {
 
 const _base = (process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 export const CATEGORY_HERO_IMAGES: Record<string, string> = {
-  // 127 ("Red Lace-Up Athletic Sneaker") and not 101: 101's image is gone from
-  // the bucket — it 403s on the CDN and on the deployed site alike, almost
-  // certainly one of the footwear photos pulled by the trademark audit that
-  // deactivate_products.py records. This constant went unused until the
-  // storefront rework started reading it, which is what made the dead id
-  // visible. Any replacement needs its image confirmed present, not just a
-  // plausible product id.
+  // Every id here must have a file in public/images (see assets/scripts/
+  // build_images.py): a plausible product id is not enough. 127 ("Red Lace-Up
+  // Athletic Sneaker") and not 101, whose photo is gone, and 605 ("Voxa
+  // Webcam") and not 148, which has never had a source image.
   shoes:            `${_base}/images/127.webp`,
   clothing:         `${_base}/images/144.webp`,
   books:            `${_base}/images/1.webp`,
-  'it-accessories': `${_base}/images/148.webp`,
+  'it-accessories': `${_base}/images/605.webp`,
   electronics:      `${_base}/images/501.webp`,
 };
