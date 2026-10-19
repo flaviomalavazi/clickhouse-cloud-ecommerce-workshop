@@ -109,12 +109,17 @@ export function trackPaymentInitiated(totalPrice: number, method: PaymentMethod)
   });
 }
 
-export function trackPaymentConfirmed(totalPrice: number, method: PaymentMethod): void {
+/**
+ * `orderId` is the Postgres order id and goes in `se_property`, which is what
+ * joins this event to `retail_oltp.orders` in ClickHouse.
+ */
+export function trackPaymentConfirmed(totalPrice: number, method: PaymentMethod, orderId?: number): void {
   ensureInitialized();
   trackStructEvent({
     category: 'checkout',
     action:   'payment_confirmed',
     label:    method,
+    property: orderId != null ? String(orderId) : undefined,
     value:    totalPrice,
   });
 }

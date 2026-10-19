@@ -1,10 +1,13 @@
 'use client';
+import { Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ArrowRightIcon, CheckIcon } from '@/components/ui/Icon';
 import { useI18n } from '@/i18n/LocaleProvider';
 
-export default function ConfirmationPage() {
+function ConfirmationContent() {
   const { t } = useI18n();
+  const order = useSearchParams().get('order');
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-20 text-center md:py-24">
@@ -16,6 +19,11 @@ export default function ConfirmationPage() {
       </span>
 
       <h1 className="text-display-sm text-ink-900">{t('confirm.title')}</h1>
+      {order && (
+        <p data-testid="order-number" className="numeric mt-3 text-sm font-semibold text-ink-500">
+          {t('confirm.orderNumber', { n: order })}
+        </p>
+      )}
       <p className="mx-auto mt-4 max-w-measure leading-relaxed text-ink-600">{t('confirm.body')}</p>
 
       {/* The ClickHouse call to action. The old version hung a 4px yellow bar
@@ -47,5 +55,13 @@ export default function ConfirmationPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function ConfirmationPage() {
+  return (
+    <Suspense>
+      <ConfirmationContent />
+    </Suspense>
   );
 }

@@ -11,7 +11,7 @@
  */
 import { type NextRequest, NextResponse } from 'next/server';
 
-const OTLP_ENDPOINT = (process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://otel-collector:4318').replace(/\/$/, '');
+const OTLP_ENDPOINT = (process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://otel-gateway:4318').replace(/\/$/, '');
 
 export async function POST(req: NextRequest, { params }: { params: { path: string[] } }) {
   const target = `${OTLP_ENDPOINT}/${params.path.join('/')}`;

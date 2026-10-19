@@ -41,10 +41,8 @@ import urllib.request
 from pathlib import Path
 
 ENDPOINT   = os.environ.get("CLICKHOUSE_ENDPOINT", "http://clickhouse:8123").rstrip("/")
-# Allow a separate DDL-capable user for migrations (e.g. when the runtime user
-# has DDL prohibited).  Falls back to CLICKHOUSE_USER / CLICKHOUSE_PASSWORD.
-USER       = os.environ.get("OTEL_MIGRATION_USER") or os.environ.get("CLICKHOUSE_USER", "default")
-PASSWORD   = os.environ.get("OTEL_MIGRATION_PASSWORD") or os.environ.get("CLICKHOUSE_PASSWORD", "")
+USER       = os.environ.get("CLICKHOUSE_USER", "default")
+PASSWORD   = os.environ.get("CLICKHOUSE_PASSWORD", "")
 DB         = os.environ.get("CLICKHOUSE_DATABASE", "")
 TTL_DAYS   = int(os.environ.get("CLICKHOUSE_TTL_DAYS", "30"))
 SEED_DIR   = Path("/etc/otel/schema/seed")

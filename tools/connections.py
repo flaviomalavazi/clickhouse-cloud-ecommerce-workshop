@@ -2,18 +2,20 @@
 Connections to the workshop's two databases, configured only from the
 environment (the root `.env`, see .env.example).
 
-  Postgres    PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE   (+ PGSSLMODE)
+  Postgres    PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE   (+ PGSSLROOTCERT, PGSSLMODE)
   ClickHouse  CLICKHOUSE_HOST, CLICKHOUSE_PORT, CLICKHOUSE_USER,
               CLICKHOUSE_PASSWORD                              (+ CLICKHOUSE_SECURE)
 
-Both default to TLS. The two overrides exist for the implementer's local test
-containers; participants never set them.
+Both default to TLS. Set PGSSLROOTCERT to the instance's CA certificate for a
+verified connection (`verify-full`: certificate chain and hostname). The two
+other overrides exist for local test containers; participants never set them.
 """
 
 from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 import clickhouse_connect
 import psycopg
@@ -35,6 +37,27 @@ def _required(name: str) -> str:
     return value
 
 
+def _pg_ssl(host: str) -> dict:
+    """sslmode (and sslrootcert) for a Postgres host.
+
+    With PGSSLROOTCERT the server's certificate is verified against that CA
+    bundle. Without it the connection is still encrypted for any remote host,
+    but the server is not authenticated. An explicit sslmode removes libpq's
+    `prefer`, which silently falls back to plaintext.
+    """
+    mode = os.environ.get("PGSSLMODE", "").strip()
+    rootcert = os.environ.get("PGSSLROOTCERT", "").strip()
+    if rootcert:
+        if not Path(rootcert).is_file():
+            sys.exit(
+                f"ERROR: PGSSLROOTCERT={rootcert} was not found. The path is relative to the "
+                "repo root (the tools container mounts the repo at /workspace), e.g. "
+                "assets/certs/ca-certificate.pem."
+            )
+        return {"sslmode": mode or "verify-full", "sslrootcert": rootcert}
+    return {"sslmode": mode or ("prefer" if host in LOCAL_HOSTS else "require")}
+
+
 def pg_kwargs(dbname: str | None = None) -> dict:
     """libpq keyword arguments for the workshop Postgres instance."""
     host = _required("PGHOST")
@@ -45,18 +68,13 @@ def pg_kwargs(dbname: str | None = None) -> dict:
             "direct endpoint (5432): the CDC ClickPipe needs a direct connection.",
             file=sys.stderr,
         )
-    # An explicit sslmode removes libpq's `prefer`, which silently falls back to
-    # plaintext. A remote host either gets TLS or fails loudly.
-    sslmode = os.environ.get("PGSSLMODE", "").strip() or (
-        "prefer" if host in LOCAL_HOSTS else "require"
-    )
     return {
         "host": host,
         "port": int(port),
         "user": _required("PGUSER"),
         "password": os.environ.get("PGPASSWORD", ""),
         "dbname": dbname or os.environ.get("PGDATABASE", "").strip() or "clickshop",
-        "sslmode": sslmode,
+        **_pg_ssl(host),
     }
 
 

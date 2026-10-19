@@ -41,7 +41,8 @@ export interface SearchResult {
   original_price: number | null;
   image_url: string;
   category_slug: string;
-  score?: number;
+  /** Units left; 0 shows the out-of-stock badge. */
+  stock_quantity?: number;
 }
 
 export interface PaginatedProducts {

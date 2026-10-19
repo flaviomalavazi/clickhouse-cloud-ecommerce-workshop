@@ -100,9 +100,9 @@ function SearchPageContent() {
             <div className="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
               <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-ink-500">
                 <span className="numeric text-base font-bold text-ink-900">
-                  <Tally value={results.length} />
+                  <Tally value={text.total} />
                 </span>
-                <span>{tn('search.resultsLabel', results.length)}</span>
+                <span>{tn('search.resultsLabel', text.total)}</span>
 
                 {text.last && (
                   <>
@@ -123,6 +123,12 @@ function SearchPageContent() {
               <LatencyMeter samples={text.samples} />
             </div>
 
+            {text.partial && (
+              <p role="status" className="mb-5 max-w-measure text-sm leading-relaxed text-ink-500">
+                {t('search.partial')}
+              </p>
+            )}
+
             <div className={PRODUCT_GRID}>
               {results.map((r, i) => (
                 <ProductCard
@@ -140,6 +146,7 @@ function SearchPageContent() {
                     original_price: r.original_price,
                     image_url: r.image_url,
                     is_active: true,
+                    stock_quantity: r.stock_quantity,
                     attributes: {},
                   }}
                   position={i}

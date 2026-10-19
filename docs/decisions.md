@@ -35,6 +35,8 @@ and the change is written down below.
 | D25 | Product search folds accents inside the text-index preprocessor (NFD-decompose, drop combining marks), so "tenis" finds "tênis". | Proposed |
 | D26 | The `clickshop-tools` image has no ClickHouse client binary (the whole ~800 MB server). `make ch-client` runs the pinned official server image instead. | Proposed |
 | D27 | The Makefile never parses `.env`: it hands the file to containers with `docker run --env-file`. `.env.example` keeps comments on their own lines. | Proposed |
+| D28 | Postgres TLS: with `PGSSLROOTCERT` (path to the instance's CA bundle, relative to the repo root) every component connects with `verify-full`. Without it the connection is encrypted but the server is not authenticated. `*.pem` is gitignored. | Proposed |
+| D29 | The Snowplow bridge resets Micro **before** it inserts and retries failed inserts from memory, instead of resetting after. Measured loss with the plan's order: 3 of the 9 events one browser session sent (a third); with this order: 0 of 81 across 9 sessions. | Proposed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -182,3 +184,98 @@ the splitter's unit tests, and the frontend (`npm run dev`) reading the seeded d
   should not matter, but run `SHOW CREATE TABLE retail_oltp.products` after the first pipe.
 - That the wizard accepts a pre-created `retail_oltp` database (D24).
 - `SELECT version()` on a fresh Cloud service is 26.2 or newer.
+
+## Phase 3: application changes
+
+### Verify results
+
+- **ClickHouse Cloud is 26.6.1**, one version behind the 26.9 used for local tests. The `text` index,
+  the refreshable MV, and accent folding in the preprocessor all work there (checked in a scratch
+  database, then again with the real data).
+- **Managed Postgres is 18.6**, TLS 1.3. `verify-full` against the instance's CA bundle works, for
+  both the Python tools and the `pg` driver in the frontend; a wrong CA is refused with
+  "certificate verify failed". The bundle holds two self-signed roots (5 and 10 years).
+- **ClickStack collector `2.41.0`** is what `latest` points at today, and is pinned. Its migration
+  creates the ClickStack tables in `retail_otel` on Cloud, and traces and logs sent through it
+  land there. `HYPERDX_OTEL_EXPORTER_TIMEOUT` (30 s in the image) is read by 2.41.0 but **not** by
+  2.19.0, which hard-codes 5 s. The exporter takes its database from
+  `HYPERDX_OTEL_EXPORTER_CLICKHOUSE_DATABASE`, not `CLICKHOUSE_DATABASE`; `entrypoint.sh` keeps the
+  two in step. The `memory_limiter` is 1500 MiB, so the pod needs at least 2 GiB.
+- **Snowplow Micro `4.6.1`** (what `latest` is today) is the version to pin in the chart, run with
+  `--yauaa`. YAUAA output is in `derived_contexts` (`iglu:nl.basjes/yauaa_context/jsonschema/1-0-5`),
+  not `contexts`. Micro validates the atomic schema, so `sid` must be a UUID, and its GET endpoint is
+  `/i`.
+- **An empty-token needle matches nothing** in `hasAllTokens` / `hasAnyTokens` ("---", "!!!", " "),
+  so the search route needs no guard for it.
+- **Managed ClickStack (Cloud console):** *not verified.* Which database and sources the UI expects,
+  and whether Logs/Traces/Metrics/Sessions sources over `retail_otel` must be created by hand,
+  are console questions for the owner (module 08).
+
+### What the checks showed
+
+- **Checkout, through the API against Managed Postgres (38 checks):** pix, boleto and card orders are
+  confirmed with the right method; totals are priced from `products`, not the client; the customer
+  is upserted by email; a sold-out product returns 409 and rolls everything back; two shoppers
+  racing for the last unit give exactly one winner and stock never goes negative; bad input gives
+  400/409; a failed payment journey (pix gateway stopped) leaves the order `cancelled` and restores
+  stock; the card gateway outage still declines at authorize.
+- **Real browser (Chromium, production build):** all three methods complete and the confirmation
+  page shows the order number. The order id is in `snowplow_events.se_property` for
+  `checkout_payment_confirmed`, with the same visitor id, method and total as the Postgres order.
+  One trace carries `clickshop.order_id` from the frontend through bff, checkout, payment, gateway,
+  order, ledger and email.
+- **Search (against the real catalogue):** `usb-c` now works; `TÊNIS` and `tenis` both return 192;
+  `running keyboard` falls back to partial matches; zero results are clean; sold-out products
+  sort after in-stock ones and show the badge. Each search is a `search.products` span with the
+  planned attributes and its `clickhouse.query` spans nested under it.
+- **Device columns** are filled from YAUAA and use the producer's vocabulary: `Chrome`,
+  `Mac OS X`, `Computer`.
+
+### Findings and judgment calls
+
+- **The bridge was losing browser events (D29).** The plan accepts that events
+  arriving between `GET /micro/good` and `POST /micro/reset` are lost, but it reset *after* the
+  insert, and against Cloud the insert takes over a second (async insert, 1 s busy timeout). In the
+  one session measured before the fix, the browser sent 9 events and 6 landed (the add-to-cart, the
+  cart page view and `payment_initiated` were wiped). Now the bridge fetches, resets at once, holds the
+  events in memory and retries the insert; 81 of 81 events landed across 9 overlapping sessions.
+  Unit-tested (`snowplow-bridge/test_main.py`).
+- **Duplicate `cart_add_to_cart` events.** When a page is left right after a click, the tracker
+  re-sends its unconfirmed queue after the next page load, so the same `event_id` can arrive twice
+  (8 seen, all add-to-cart, 30-80 ms apart). This is the tracker's at-least-once delivery, not the
+  bridge. `snowplow_events` is not deduplicated; counts can be inflated slightly when a session
+  clicks and then does a hard page load.
+- **`checkout_start` does not fire on a hard load of `/checkout`:** the cart is restored after the
+  effect that tracks it. A shopper arrives by client-side navigation, so it fires for real users.
+- **Cart is lost on a hard navigation under `next dev`** (React StrictMode runs the persist effect
+  before the hydrate effect has read `localStorage`). Production is unaffected, so the check ran on
+  the production build. Not changed here; it matters for `make dev-frontend`.
+- **Module 08 filter:** use `search.total = 0` to find searches that found nothing. `search.results = 0`
+  also matches a page past the end of a search that has results.
+- **Frontend and component config now reads the shared variables.** `CLICKHOUSE_URL` became
+  `CLICKHOUSE_HOST` / `CLICKHOUSE_PORT` (TLS unless the host is local or `CLICKHOUSE_SECURE=false`),
+  the bridge's `CLICKHOUSE_DB` became `CLICKHOUSE_DATABASE`, and `OTEL_AUTH_HEADER`,
+  `OTEL_MIGRATION_USER` / `PASSWORD` and `SKIP_MIGRATION` are gone (one user, no auth header). The
+  other variables the plan listed for removal were already gone with Phase 1.
+- **Chart-internal variables** (set by Helm in Phase 5, not in `.env.example`): `CLICKHOUSE_DATABASE`,
+  `STOREFRONT_BFF_URL`, `SNOWPLOW_MICRO_URL`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
+  `OTEL_COLLECTOR_METRICS_URL`, `NEXT_PUBLIC_BASE_URL`, `NEXT_PUBLIC_SNOWPLOW_APP_ID`, `PGPOOL_MAX`,
+  `POLL_INTERVAL_SECONDS`, `CLICKHOUSE_TTL_DAYS`, `HYPERDX_OTEL_EXPORTER_*`, `DEMO_*`,
+  `CARD_GATEWAY_*`. `HOSTNAME=0.0.0.0` for the frontend pod is also Phase 5.
+- **Demo-service** now has a `MeterProvider` (FastAPI request metrics reach ClickStack) and sets
+  `clickshop.order_id` and `clickshop.payment_method` from the payload.
+- **The search hint text** said "skip indexes"; it now says "full-text index" in all three locales.
+
+### Carried into Phase 4
+
+- The simulator waits for `**/checkout/confirmation`, which no longer matches: the URL is
+  `/checkout/confirmation?order=<id>`.
+- The simulator should reach `/checkout` by clicking through from the cart, not by loading it, so
+  `checkout_start` fires and the cart survives.
+
+### Not verified yet
+
+- **CDC end to end with a real ClickPipe.** None exists yet, so `products_search` on Cloud, search
+  freshness after an order, and `make ch-search` on real CDC tables are untested. Search was checked
+  against a scratch copy of the real Postgres data built with the real `10_products_search.sql`.
+- Managed ClickStack in the console (above).
