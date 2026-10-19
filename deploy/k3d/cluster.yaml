@@ -1,0 +1,37 @@
+# The workshop cluster: one server and two agents (D19), Kubernetes pinned by
+# the k3s image. Created by `make cluster`.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: clickshop
+servers: 1
+agents: 2
+image: rancher/k3s:v1.33.5-k3s1
+ports:
+  # The storefront: http://localhost:3000 -> the load balancer's port 80, where
+  # Traefik (the k3s default ingress controller) routes it to the frontend Service.
+  - port: 3000:80
+    nodeFilters:
+      - loadbalancer
+options:
+  k3s:
+    # All three nodes are containers on Docker's one virtual disk, so each kubelet
+    # sees that whole disk, including everything else Docker keeps on it. With the
+    # defaults, a disk that is 85% full (not unusual on a laptop) makes the kubelet
+    # delete the images `make images` loaded that no pod runs yet, and a disk past
+    # 90% taints every node and evicts the pods. `make doctor` checks that there is
+    # room; these settings stop the kubelets from second-guessing it.
+    extraArgs:
+      - arg: --kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%,nodefs.inodesFree<1%
+        nodeFilters: [server:*, agent:*]
+      - arg: --kubelet-arg=image-gc-high-threshold=100
+        nodeFilters: [server:*, agent:*]
+      - arg: --kubelet-arg=image-gc-low-threshold=99
+        nodeFilters: [server:*, agent:*]
+  k3d:
+    wait: true
+    timeout: 180s
+  kubeconfig:
+    # The wrappers write their own kubeconfig; leave the participant's alone.
+    updateDefaultKubeconfig: false
+    switchCurrentContext: false
