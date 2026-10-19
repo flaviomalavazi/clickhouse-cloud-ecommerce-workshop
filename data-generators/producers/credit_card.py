@@ -1,41 +1,26 @@
 #!/usr/bin/env python3
 """
-Credit-card transaction producer — background traffic, high throughput.
+Credit-card transaction producer — background traffic, straight into ClickHouse.
 
 Generates synthetic Brazilian credit-card transactions for merchants *outside*
-the storefront — restaurants, retail chains, pharmacies, cinemas — and routes
-them to one of four sinks (``--sink`` / ``CC_SINK``):
-
-  kafka       – produce JSON to the credit_card_transactions Kafka topic (default)
-  clickhouse  – insert straight into ClickHouse over HTTP using async_insert,
-                with no broker or Kafka Connect in the path
-  file        – write newline-delimited JSON to local files
-  s3          – write local files, then upload each to S3 via boto3
-
-Which sink to pick
-  kafka       when the demo is about the streaming pipeline itself, or when
-              something else also consumes the topic.
-  clickhouse  when you just want rows in the table. Fewer moving parts, no
-              broker RAM to size, no connector to register — and no Kafka
-              retention window to out-run. This is the simplest way to load a
-              lot of transactions quickly.
-  file / s3   when the demo is about object-storage ingestion (s3 table function,
-              ClickPipes) or you want a reusable dataset on disk.
+the storefront — restaurants, retail chains, pharmacies, cinemas — and INSERTs
+them into retail_analytics.credit_card_transactions over HTTP. There is no broker
+in the path. Batching, compression and retries are shared with the web-events
+producer (shared/clickhouse_sink.py).
 
 What this producer is *not*
 ---------------------------
-It deliberately does not invent storefront orders. Transactions that belong to a
-ClickShop purchase are emitted by whichever generator created that purchase —
-the web-events producer or the simulator — because only they know the order id
-that makes the transaction joinable to its purchase event. This producer
-provides the surrounding volume, so `merchant_name = 'ClickShop'` selects
-exactly the reconcilable population and everything else is background.
+It deliberately does not invent storefront orders. The card transaction behind a
+ClickShop purchase is emitted by the web-events producer, because only it knows
+the order id that makes the transaction joinable to its purchase event. This
+producer provides the surrounding volume, so `merchant_name = 'ClickShop'`
+selects exactly the reconcilable population and everything else is background.
 
 Transaction model
   Each transaction is one of three kinds (weighted mix):
     legitimate  – a normal expense
     chargeback  – a refund/dispute (negative bill_value, type="chargeback")
-    faulty      – exactly one corrupted field, the demo's fraud/anomaly signal
+    faulty      – exactly one corrupted field, the demo's anomaly signal
                   (null merchant_name/card_holder, negative bill_value,
                    installments=0, invalid card_network "UCB", a card_bin that
                    contradicts the network, or a future timestamp)
@@ -45,22 +30,20 @@ Transaction model
   either population.
 
 Timestamps (EVENT_MODE)
-  live   – stamped at ~now. This producer used to date every transaction 61-120
-           days in the past unconditionally, which made it useless for any demo
-           about *today*.
+  live   – stamped at ~now.
   mixed  – BACKFILL_RATIO dated at a random hour-of-day-weighted point inside the
            last BACKFILL_DAYS; the rest live.
 
 Rate
   CC_TARGET_TPS is a *daily-average* transactions/second target, scaled by the
-  hour-of-day curve (≈0.10× overnight, ≈2.94× at the 20:00 peak UTC-03). Leave
-  it at 0 to run flat out.
+  hour-of-day curve (≈0.10× overnight, ≈2.94× at the 20:00 peak UTC-03). Set it
+  to 0 to run flat out.
 
 Throughput
   Cardholder names and expiry dates are drawn once at startup into in-memory
   pools, then sampled with random.choice — no per-row library calls. Records are
-  serialised with orjson. Generation is CPU-bound, so workers default to
-  multiprocessing (CC_WORKER_MODE=process); CC_WORKER_MODE=thread is lighter.
+  serialised with orjson. The default is two worker threads sharing one writer;
+  for a backfill use CC_WORKER_MODE=process with CC_TARGET_TPS=0.
 """
 
 import argparse
@@ -71,56 +54,33 @@ import signal
 import sys
 import threading
 import time
-from datetime import datetime, timezone
 
-import orjson
-from dotenv import load_dotenv
-
-# In the container the shared traffic profile is copied to /app, one directory up.
-# For a local checkout it lives in data-generators/shared. Try both.
-_PRODUCER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _PRODUCER_DIR)
-_SHARED = os.path.join(os.path.dirname(os.path.dirname(_PRODUCER_DIR)), "shared")
+# In a checkout the shared modules sit next to this directory; in the image
+# everything is copied flat into /app and is already importable.
+_SHARED = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "shared")
 if os.path.isdir(_SHARED):
-    sys.path.append(_SHARED)
+    sys.path.insert(0, _SHARED)
 
 import traffic_profile as tp   # noqa: E402
-
-load_dotenv()
-
-from clickhouse_env import load_root_clickhouse_env  # noqa: E402
-
-load_root_clickhouse_env()
+import clickhouse_env as env    # noqa: E402
+import clickhouse_sink          # noqa: E402
 
 # ─── Configuration ──────────────────────────────────────────────────────────────
-CC_SINK             = os.getenv("CC_SINK", "kafka").lower()
-CC_TOPIC            = os.getenv("CC_TOPIC", "credit_card_transactions")
-CC_WORKERS          = tp.env_int("CC_WORKERS", os.cpu_count() or 4)
-CC_WORKER_MODE      = os.getenv("CC_WORKER_MODE", "process").lower()
+# `CC_WORKERS` has to be set explicitly in a pod: os.cpu_count() reports the
+# node's CPUs, not the pod's limit.
+CC_WORKERS          = tp.env_int("CC_WORKERS", 2)
+CC_WORKER_MODE      = os.getenv("CC_WORKER_MODE", "thread").lower()
 CC_MAX              = tp.env_int("CC_MAX_TRANSACTIONS", 0)   # 0 = run forever
 CC_INTERVAL_MS      = tp.env_float("CC_INTERVAL_MS", 0.0)    # legacy per-worker sleep
-CC_TARGET_TPS       = tp.env_float("CC_TARGET_TPS", 0.0)     # 0 = flat out
+CC_TARGET_TPS       = tp.env_float("CC_TARGET_TPS", 20.0)    # 0 = flat out
 CC_POOL_SIZE        = tp.env_int("CC_POOL_SIZE", 100_000)
 CC_STATS_INTERVAL_S = tp.env_int("CC_STATS_INTERVAL_S", 5)
 CC_RANDOM_SEED      = tp.env_int("CC_RANDOM_SEED", 42)
 
-# File / S3 sink
-CC_OUTPUT_DIR    = os.getenv("CC_OUTPUT_DIR", "./output")
-CC_FILE_ROWS     = tp.env_int("CC_FILE_ROWS", 50_000)
-CC_S3_BUCKET     = os.getenv("CC_S3_BUCKET", "")
-CC_S3_PREFIX     = os.getenv("CC_S3_PREFIX", "credit-card-transactions")
-CC_S3_REGION     = os.getenv("CC_S3_REGION", "")
-CC_S3_KEEP_LOCAL = tp.env_bool("CC_S3_KEEP_LOCAL", False)
-
-# Direct-to-ClickHouse sink. The insert behaviour (batching, async_insert,
-# compression, retries) and the connection settings are shared with the
-# web-events producer — see clickhouse_sink.py and the CH_* variables.
+# Target table. The insert behaviour (batching, compression, retries) and the
+# connection settings are shared with the web-events producer — see
+# clickhouse_sink.py and the CH_* variables.
 CC_CH_TABLE = os.getenv("CC_CH_TABLE", "credit_card_transactions")
-
-# Kafka
-BOOTSTRAP_SERVERS    = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
-CONFLUENT_API_KEY    = os.getenv("CONFLUENT_API_KEY", "")
-CONFLUENT_API_SECRET = os.getenv("CONFLUENT_API_SECRET", "")
 
 # ─── Static reference data ────────────────────────────────────────────────────────
 RESTAURANTS = (
@@ -247,126 +207,24 @@ def generate_transaction(pools: dict[str, tuple], clock: tp.Clock) -> dict:
     return generate_faulty(pools, clock)
 
 
-# ─── Sinks ────────────────────────────────────────────────────────────────────────
-class KafkaSink:
-    """Produces JSON transactions to a Kafka topic via confluent-kafka."""
-
-    def __init__(self, worker_id: int):
-        from confluent_kafka import Producer
-
-        config: dict = {
-            "bootstrap.servers":            BOOTSTRAP_SERVERS,
-            "linger.ms":                    10,
-            "batch.num.messages":           10_000,
-            "compression.type":             "lz4",
-            "acks":                         "1",
-            # 128 MiB of buffered messages per worker, so N workers cannot
-            # collectively exhaust the box's RAM.
-            "queue.buffering.max.messages": 100_000,
-            "queue.buffering.max.kbytes":   131_072,
-        }
-        if CONFLUENT_API_KEY and CONFLUENT_API_SECRET:
-            config.update({
-                "security.protocol": "SASL_SSL",
-                "sasl.mechanism":    "PLAIN",
-                "sasl.username":     CONFLUENT_API_KEY,
-                "sasl.password":     CONFLUENT_API_SECRET,
-            })
-        self._producer = Producer(config)
-
-    def write(self, txn: dict) -> None:
-        value = orjson.dumps(txn)
-        while True:
-            try:
-                self._producer.produce(CC_TOPIC, key=txn["transaction_id"], value=value)
-                break
-            except BufferError:
-                self._producer.poll(0.05)
-        self._producer.poll(0)
-
-    def close(self) -> None:
-        self._producer.flush(30)
-
-
-class FileSink:
-    """Buffers transactions into newline-delimited JSON files. When CC_SINK=s3,
-    each completed file is uploaded to S3 and (optionally) removed locally."""
-
-    def __init__(self, worker_id: int, upload: bool):
-        self._worker_id = worker_id
-        self._upload = upload
-        self._buf: list[bytes] = []
-        self._s3 = None
-        if upload:
-            import boto3
-
-            self._s3 = boto3.client("s3", region_name=CC_S3_REGION or None)
-        os.makedirs(CC_OUTPUT_DIR, exist_ok=True)
-
-    def write(self, txn: dict) -> None:
-        self._buf.append(orjson.dumps(txn))
-        if len(self._buf) >= CC_FILE_ROWS:
-            self._flush()
-
-    def _flush(self) -> None:
-        if not self._buf:
-            return
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
-        name = f"cc_{ts}_w{self._worker_id}.json"
-        path = os.path.join(CC_OUTPUT_DIR, name)
-        with open(path, "wb") as fh:
-            fh.write(b"\n".join(self._buf))
-            fh.write(b"\n")
-        self._buf.clear()
-        if self._upload and self._s3 is not None:
-            key = f"{CC_S3_PREFIX.rstrip('/')}/{name}"
-            self._s3.upload_file(path, CC_S3_BUCKET, key)
-            if not CC_S3_KEEP_LOCAL:
-                os.remove(path)
-
-    def close(self) -> None:
-        self._flush()
-
-
+# ─── Sink ─────────────────────────────────────────────────────────────────────
 class ClickHouseSink:
     """
-    Inserts transactions straight into ClickHouse, no Kafka involved.
-
-    A thin adapter over the shared ClickHouseInserter, which the web-events
-    producer uses too — so both producers batch, compress, retry, and use
-    async_insert identically.
+    A worker's handle on the process-wide inserter. The workers in a process share
+    one writer for the table, so a burst of workers still makes few, large inserts.
     """
 
-    def __init__(self, worker_id: int):
-        from clickhouse_sink import ClickHouseInserter
-
-        self._inserter = ClickHouseInserter((CC_CH_TABLE,), worker_id=worker_id)
+    def __init__(self):
+        self._inserter = clickhouse_sink.get_inserter((CC_CH_TABLE,))
 
     def write(self, txn: dict) -> None:
         self._inserter.write(CC_CH_TABLE, txn)
-
-    def close(self) -> None:
-        self._inserter.close()
-
-
-def make_sink(worker_id: int):
-    if CC_SINK == "kafka":
-        return KafkaSink(worker_id)
-    if CC_SINK == "clickhouse":
-        return ClickHouseSink(worker_id)
-    if CC_SINK == "file":
-        return FileSink(worker_id, upload=False)
-    if CC_SINK == "s3":
-        return FileSink(worker_id, upload=True)
-    raise SystemExit(
-        f"[ERROR] Unknown CC_SINK '{CC_SINK}' (expected kafka|clickhouse|file|s3)"
-    )
 
 
 # Workers flush their local count to the shared slot every _COUNT_BATCH txns,
 # so the hot path never touches a lock. CC_MAX is enforced at this granularity
 # (a small overrun across workers is acceptable for a demo generator).
-_COUNT_BATCH = 1000
+_COUNT_BATCH = 100
 
 
 # ─── Worker loop ──────────────────────────────────────────────────────────────────
@@ -377,7 +235,7 @@ def worker_loop(worker_id: int, pools: dict[str, tuple], counts, stop) -> None:
     # Stable per-worker streams make the generated choices and IDs replayable
     # while preventing forked workers from producing identical sequences.
     random.seed(CC_RANDOM_SEED + worker_id)
-    sink       = make_sink(worker_id)
+    sink       = ClickHouseSink()
     clock      = tp.Clock()
     pacer      = tp.Pacer(CC_TARGET_TPS / CC_WORKERS if CC_TARGET_TPS > 0 else 0.0)
     interval_s = CC_INTERVAL_MS / 1000.0
@@ -395,7 +253,14 @@ def worker_loop(worker_id: int, pools: dict[str, tuple], counts, stop) -> None:
                 time.sleep(interval_s)
     finally:
         counts[worker_id] = local
-        sink.close()
+        if CC_WORKER_MODE == "process":
+            # A worker process has its own inserter and flushes it here. Threads
+            # share the main process's one, which main() flushes once, after every
+            # thread has finished.
+            stats = clickhouse_sink.close_all()
+            print(f"[INFO] worker {worker_id} inserts: " + ", ".join(
+                f"{t}={st['inserts']:,} ({st['rows']:,} rows)" for t, st in stats.items()
+            ), flush=True)
 
 
 # ─── Stats reporter ─────────────────────────────────────────────────────────────
@@ -417,8 +282,6 @@ def stats_reporter(counts, stop) -> None:
 # ─── Main ─────────────────────────────────────────────────────────────────────────
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--sink", choices=["kafka", "clickhouse", "file", "s3"], default=None,
-                   help="Where to route transactions (overrides CC_SINK)")
     p.add_argument("--workers", type=int, default=None, help="Number of workers (overrides CC_WORKERS)")
     p.add_argument("--max", type=int, default=None, help="Total transactions, 0=forever (overrides CC_MAX_TRANSACTIONS)")
     p.add_argument("--interval-ms", type=float, default=None, dest="interval_ms",
@@ -433,10 +296,8 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    global CC_SINK, CC_WORKERS, CC_MAX, CC_INTERVAL_MS, CC_TARGET_TPS
+    global CC_WORKERS, CC_MAX, CC_INTERVAL_MS, CC_TARGET_TPS
     args = _parse_args()
-    if args.sink is not None:
-        CC_SINK = args.sink
     if args.workers is not None:
         CC_WORKERS = args.workers
     if args.max is not None:
@@ -454,12 +315,12 @@ def main() -> None:
     # with the 'spawn' start method (macOS default) — which re-import this module
     # and re-read config from os.environ rather than inheriting parent globals —
     # see the same values as the parent.
-    os.environ["CC_SINK"] = CC_SINK
     os.environ["CC_WORKERS"] = str(CC_WORKERS)
     os.environ["CC_MAX_TRANSACTIONS"] = str(CC_MAX)
     os.environ["CC_INTERVAL_MS"] = str(CC_INTERVAL_MS)
     os.environ["CC_TARGET_TPS"] = str(CC_TARGET_TPS)
 
+    env.require_host()
     clock = tp.Clock()      # validates EVENT_MODE before any worker starts
 
     random.seed(CC_RANDOM_SEED)
@@ -471,25 +332,12 @@ def main() -> None:
         f"{CC_TARGET_TPS:,.0f} txn/s daily avg, {CC_TARGET_TPS * tp.PEAK_MULTIPLIER:,.0f}/s at peak"
     )
     print(
-        f"[INFO] sink={CC_SINK} topic={CC_TOPIC} workers={CC_WORKERS} "
-        f"mode={CC_WORKER_MODE} rate={rate_desc} max={CC_MAX or 'unlimited'}\n"
+        f"[INFO] Inserting into {env.CLICKHOUSE_DATABASE}.{CC_CH_TABLE}\n"
+        f"[INFO] {clickhouse_sink.describe()}\n"
+        f"[INFO] workers={CC_WORKERS} ({CC_WORKER_MODE}) rate={rate_desc} max={CC_MAX or 'unlimited'}\n"
         f"[INFO] timestamps={clock.describe()}",
         flush=True,
     )
-    if CC_SINK == "kafka":
-        print(f"[INFO] Producing to '{CC_TOPIC}' on {BOOTSTRAP_SERVERS}", flush=True)
-    elif CC_SINK == "clickhouse":
-        import clickhouse_sink
-
-        if not clickhouse_sink.CLICKHOUSE_HOST:
-            raise SystemExit("[ERROR] CC_SINK=clickhouse requires CLICKHOUSE_HOST")
-        print(
-            f"[INFO] Inserting into {clickhouse_sink.CLICKHOUSE_DATABASE}.{CC_CH_TABLE}\n"
-            f"[INFO] {clickhouse_sink.describe()}",
-            flush=True,
-        )
-    elif CC_SINK == "s3" and not CC_S3_BUCKET:
-        raise SystemExit("[ERROR] CC_SINK=s3 requires CC_S3_BUCKET")
 
     if CC_WORKER_MODE == "process":
         counts = mp.Array("q", CC_WORKERS)   # one signed-64 slot per worker
@@ -526,7 +374,13 @@ def main() -> None:
             w.join()
     finally:
         stop.set()
+        inserts = clickhouse_sink.close_all()
         print(f"[INFO] Total transactions: {sum(counts):,}", flush=True)
+        if inserts:
+            print("[INFO] Inserts: " + ", ".join(
+                f"{t}={st['inserts']:,} ({st['rows']:,} rows, {st['dropped_batches']} dropped)"
+                for t, st in inserts.items()
+            ), flush=True)
 
 
 if __name__ == "__main__":

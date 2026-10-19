@@ -1,83 +1,74 @@
-"""Resolves ClickHouse credentials from the repo root's env file, shared with
-the rest of the demo, instead of a copy in data-generators/.env.
+"""ClickHouse connection settings for the generators, read from the environment.
 
-These generators INSERT directly into ClickHouse, so they need the root
-file's write-capable CLICKHOUSE_INGEST_URL/_USER/_PASSWORD — the same pair the
-Snowplow bridge prefers — falling back to CLICKHOUSE_URL/_USER/_PASSWORD (the
-read-only credentials in Cloud mode) only when the ingest ones are unset, per
-the root .env.example's own documented fallback. Normalizes whichever URL/user
-wins into the CLICKHOUSE_HOST/PORT/USERNAME/SSL names clickhouse_sink.py and
-the producers here read. A value already present in os.environ (e.g. an
-explicit override in data-generators/.env) always wins.
+Every component in the workshop reads the same variables, which arrive from the
+root `.env` (through the cluster's Secret):
+
+  CLICKHOUSE_HOST      service host, no scheme and no port
+  CLICKHOUSE_PORT      HTTP(S) port                                (8443)
+  CLICKHOUSE_USER      user                                        (default)
+  CLICKHOUSE_PASSWORD  password
+  CLICKHOUSE_DATABASE  database the tables live in                 (retail_analytics)
+  CLICKHOUSE_SECURE    TLS; on unless the host is local            (auto)
+
+Nothing here looks for an env file: if the variables are not in the environment,
+the generator has nothing to connect to and says so.
 """
 
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from urllib.parse import urlparse
 
-from dotenv import load_dotenv
+_LOCAL_HOSTS = ("localhost", "127.0.0.1", "host.docker.internal")
 
 
-def _find_repo_root() -> Path | None:
-    # Walk up from this file looking for the repo root. In a local checkout
-    # that's two levels up (data-generators/shared/); in a container this file
-    # is copied flat alongside the generator code, so there is no repo root to
-    # find at all — in that case CLICKHOUSE_* already arrived via docker
-    # compose's `environment:` block, and the caller never gets here (see the
-    # early return below).
-    directory = Path(__file__).resolve().parent
-    for _ in range(6):
-        if (directory / "docker-compose.yml").is_file() and (directory / ".env.example").is_file():
-            return directory
-        if directory.parent == directory:
-            break
-        directory = directory.parent
-    return None
+def _secure(host: str) -> bool:
+    raw = os.environ.get("CLICKHOUSE_SECURE", "").strip().lower()
+    if raw:
+        return raw not in ("0", "false", "no")
+    return host not in _LOCAL_HOSTS
 
 
-def load_root_clickhouse_env() -> None:
-    if os.environ.get("CLICKHOUSE_HOST"):
-        return
+CLICKHOUSE_HOST     = os.environ.get("CLICKHOUSE_HOST", "").strip()
+CLICKHOUSE_PORT     = int(os.environ.get("CLICKHOUSE_PORT", "").strip() or 8443)
+CLICKHOUSE_USER     = os.environ.get("CLICKHOUSE_USER", "default")
+CLICKHOUSE_PASSWORD = os.environ.get("CLICKHOUSE_PASSWORD", "")
+CLICKHOUSE_DATABASE = os.environ.get("CLICKHOUSE_DATABASE", "retail_analytics")
+CLICKHOUSE_SECURE   = _secure(CLICKHOUSE_HOST)
 
-    # Reading the root env file is best-effort: it is how this works from a
-    # checkout, but in a container only the handful of .py files are copied in,
-    # so there is no repo root to find. Returning here would skip the
-    # URL-to-HOST/PORT/SSL translation below and leave CLICKHOUSE_HOST empty —
-    # which is why a container given a perfectly good CLICKHOUSE_URL still
-    # could not connect. Fall through and translate whatever is in the
-    # environment instead.
-    repo_root = _find_repo_root()
-    if repo_root is not None:
-        root_file = os.environ.get("ROOT_ENV_FILE")
-        candidates = (
-            [repo_root / root_file]
-            if root_file
-            else [repo_root / ".env.local", repo_root / ".env.cloud"]
+
+def require_host() -> None:
+    """Exit with a clear message when there is no ClickHouse to talk to."""
+    if not CLICKHOUSE_HOST:
+        raise SystemExit(
+            "[ERROR] CLICKHOUSE_HOST is not set. The generators write to ClickHouse "
+            "Cloud; copy .env.example to .env and fill it in."
         )
-        for candidate in candidates:
-            if candidate.is_file():
-                load_dotenv(candidate)
-                break
 
-    ingest_url = os.environ.get("CLICKHOUSE_INGEST_URL")
-    url = ingest_url or os.environ.get("CLICKHOUSE_URL")
-    if url and not os.environ.get("CLICKHOUSE_HOST"):
-        parsed = urlparse(url)
-        os.environ["CLICKHOUSE_HOST"] = parsed.hostname or ""
-        os.environ["CLICKHOUSE_PORT"] = str(
-            parsed.port or (8443 if parsed.scheme == "https" else 8123)
-        )
-        os.environ["CLICKHOUSE_SSL"] = "true" if parsed.scheme == "https" else "false"
 
-    if ingest_url:
-        user = os.environ.get("CLICKHOUSE_INGEST_USER") or os.environ.get("CLICKHOUSE_USER")
-        ingest_password = os.environ.get("CLICKHOUSE_INGEST_PASSWORD")
-        if ingest_password is not None:
-            os.environ["CLICKHOUSE_PASSWORD"] = ingest_password
-    else:
-        user = os.environ.get("CLICKHOUSE_USER")
+def connect(**overrides):
+    """A clickhouse-connect client for the workshop service.
 
-    if user and not os.environ.get("CLICKHOUSE_USERNAME"):
-        os.environ["CLICKHOUSE_USERNAME"] = user
+    Sessions are switched off: the client is shared between threads, and two
+    queries in one session make the server answer "Session is locked".
+    """
+    import clickhouse_connect
+
+    require_host()
+    kwargs = dict(
+        host=CLICKHOUSE_HOST,
+        port=CLICKHOUSE_PORT,
+        username=CLICKHOUSE_USER,
+        password=CLICKHOUSE_PASSWORD,
+        database=CLICKHOUSE_DATABASE,
+        secure=CLICKHOUSE_SECURE,
+        connect_timeout=30,
+        send_receive_timeout=120,
+        autogenerate_session_id=False,
+    )
+    kwargs.update(overrides)
+    return clickhouse_connect.get_client(**kwargs)
+
+
+def describe() -> str:
+    scheme = "https" if CLICKHOUSE_SECURE else "http"
+    return f"{scheme}://{CLICKHOUSE_HOST}:{CLICKHOUSE_PORT}/{CLICKHOUSE_DATABASE}"

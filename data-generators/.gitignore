@@ -1,4 +1,2 @@
 # The unified config — holds real credentials. Use .env.example as the template.
 .env
-# Local NDJSON output from CC_SINK=file
-output/
