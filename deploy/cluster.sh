@@ -11,6 +11,11 @@ K3D=deploy/bin/k3d
 
 exists() { "$K3D" cluster list --no-headers 2>/dev/null | awk '{print $1}' | grep -qx "$NAME"; }
 
+# k3d talks about the participant's own kubeconfig, which the workshop never touches
+# (it writes .workshop/kubeconfig), and tells them to export a KUBECONFIG that does
+# not exist. Drop those lines; every other line, and k3d's exit status, is kept.
+quiet() { "$@" 2>&1 | { grep -vE 'default kubeconfig|You can now use it like this|^export KUBECONFIG=|^kubectl cluster-info' || true; }; }
+
 case ${1:-} in
   up)
     mkdir -p .workshop
@@ -18,7 +23,7 @@ case ${1:-} in
       echo "cluster '$NAME' already exists"
       "$K3D" cluster start "$NAME" >/dev/null   # a no-op when it is running
     else
-      "$K3D" cluster create --config deploy/k3d/cluster.yaml
+      quiet "$K3D" cluster create --config deploy/k3d/cluster.yaml
       # Anything imported before belonged to a cluster that no longer exists.
       rm -rf .workshop/imported
     fi
@@ -30,7 +35,7 @@ case ${1:-} in
     deploy/bin/kubectl wait --for=condition=Ready nodes --all --timeout=120s
     ;;
   down)
-    if exists; then "$K3D" cluster delete "$NAME"; else echo "cluster '$NAME' does not exist"; fi
+    if exists; then quiet "$K3D" cluster delete "$NAME"; else echo "cluster '$NAME' does not exist"; fi
     rm -rf .workshop/kubeconfig .workshop/imported
     ;;
   *)
