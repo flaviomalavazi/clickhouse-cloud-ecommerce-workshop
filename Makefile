@@ -47,7 +47,7 @@ pg-setup: check-env tools-image ## Create the database, apply the schema, seed t
 
 pg-reset: check-env tools-image ## Truncate every Postgres table and reseed (not while the ClickPipe runs)
 	@echo "WARNING: TRUNCATE is not replicated by the CDC ClickPipe. If the pipe exists, ClickHouse keeps"
-	@echo "the rows this removes. To start over with a pipe running, use: make nuke-data"
+	@echo "the rows this removes. To start over with a pipe running, use: make nuke-data (it empties the mirror too)"
 	@if [ "$(CONFIRM)" != "yes" ]; then read -r -p "Type 'reset' to truncate anyway: " a; [ "$$a" = reset ] || { echo "cancelled"; exit 1; }; fi
 	@$(TOOLS_RUN) python /app/tools/seed_postgres.py --reset
 
@@ -182,10 +182,11 @@ check-%: ## Check a module's result: make check-05 (see scripts/checks)
 down: ## Delete the cluster and everything in it (the databases are not touched)
 	@deploy/cluster.sh down
 
-nuke-data: check-env tools-image ## Reset orders and inventory to the seed (events and telemetry are kept)
-	@echo "This deletes the orders and customers added since the seed and restores every stock level."
-	@echo "ClickHouse is not touched: web analytics events and telemetry are kept. The ClickPipe brings"
-	@echo "retail_oltp back in step within about a minute."
+nuke-data: check-env tools-image ## Reseed Postgres and let the ClickPipe re-ingest it (events and telemetry are kept)
+	@echo "This truncates and reseeds Postgres (the orders and customers added since are gone, the stock is"
+	@echo "restored) and empties the retail_oltp mirror tables in ClickHouse, which the ClickPipe then fills"
+	@echo "again (a few minutes; products_search is empty until it has). Web analytics events and telemetry"
+	@echo "are not touched."
 	@read -r -p "Type 'nuke' to continue: " a; [ "$$a" = nuke ] || { echo "cancelled"; exit 1; }
 	@if [ -f .workshop/kubeconfig ]; then $(MAKE) --no-print-directory sim-stop; fi
 	@$(TOOLS_RUN) python /app/tools/nuke_data.py --yes

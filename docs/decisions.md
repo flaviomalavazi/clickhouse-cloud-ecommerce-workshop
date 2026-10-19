@@ -49,7 +49,7 @@ and the change is written down below.
 | D39 | Logs are de-duplicated by label: pods that send logs over OTLP (frontend, demo services) carry `otel.logs: otlp`, and the node collector drops their stdout after `k8sattributes`. | Proposed |
 | D40 | The simulator image is **Chromium only** (1.5 GB, `python:3.12-slim-bookworm` plus `playwright install --with-deps chromium`, Playwright still 1.44.0) instead of the 2.9 GB official image with three browsers. It is loaded onto **one** node, labelled `clickshop/simulator-image`, which the chart's `nodeSelector` asks for. `clickshop-tools` is not loaded into the cluster: it only runs through `docker run`. | Proposed |
 | D41 | `.env.example` no longer lists `SIM_SESSIONS` (amends D31): the number of browsers is `make sim-start USERS=n`, because it sets the pod's memory limit as well. | Proposed |
-| D42 | `make nuke-data` resets **orders and inventory only**: Postgres goes back to the seed through DELETE and UPDATE (which the ClickPipe replicates). It never touches ClickHouse: the web analytics events, the card transactions, the rollups built from them and the ClickStack telemetry in `retail_otel` are slow to rebuild, so no reset removes them. This is the owner's rule; the first version of the command emptied those tables and was wrong. | Confirmed |
+| D42 | `make nuke-data` reseeds Postgres from scratch (TRUNCATE and the seed) and empties the `retail_oltp` mirror tables in ClickHouse, so the ClickPipe ingests the seed again from empty. It **never touches the web analytics events, the card transactions, the rollups built from them or the ClickStack telemetry** (`retail_otel`): they are slow to rebuild. The order matters because the ClickPipe ignores TRUNCATE: wait for the pipe to catch up, empty the mirror (not the pipe's own `_peerdb_` tables), reseed Postgres, wait for the mirror to fill, then refresh `products_search`. Without a ClickPipe only Postgres is reseeded. This is the owner's rule; the first version emptied the events and telemetry and was wrong. | Confirmed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -461,9 +461,13 @@ D32 to D41 above are the decisions. This section records what was checked on the
   ClickHouse's tokenizer, so `hasToken(Body, 'card_gateway_unavailable')` is an error and the text
   index search is `hasAllTokens(Body, 'card gateway unavailable')` (4 rows in the check run); a
   substring `ILIKE` finds it too.
-- **`make nuke-data`** (confirmed with `nuke`): restored Postgres (11 orders, 11 customers, 12 stock
-  levels back to the seed); `make status` then showed Postgres at 2,000 orders and 500 customers and
-  the CDC copy in step. This first version also emptied 17 ClickHouse tables; see D42 and the mistake below.
+- **`make nuke-data`** (final version, D42), against the real pipe: it waited for the pipe to be in
+  step, emptied the 6 `retail_oltp` tables, reseeded Postgres, and the pipe re-ingested all of it
+  from empty (orders 0 of 2,000 at the first check, in step about 30 s later) in **53 s in total**,
+  then rebuilt `products_search` (978 rows). Row counts of all six tables and the total stock match
+  Postgres; the pipe's own `_peerdb_raw_mirror_...` table was kept. The first version had restored
+  Postgres with DELETE and UPDATE and emptied 17 ClickHouse tables, including the events and telemetry;
+  see the mistake below.
 
 ### Bugs the live run found
 
@@ -525,8 +529,11 @@ D32 to D41 above are the decisions. This section records what was checked on the
   answered again shortly after the simulator was stopped, and showed 17 of 500 connections in use, so
   it was not a limit on the service. Whether the simulator's load had anything to do with it, and what
   was wrong on the network path, was not found out.
-- **`make nuke-data` does not truncate Postgres** (the ClickPipe does not replicate it): it deletes
-  the added orders and customers and restores the stock, and nothing else (D42).
+- **`make nuke-data` and TRUNCATE.** The ClickPipe FAQ says "TRUNCATE operations are ignored by
+  ClickPipes and won't be replicated to ClickHouse": no error, but no effect either. That is why
+  `make pg-reset` is unsafe with a live pipe and why `make nuke-data` empties the mirror itself, in
+  an order that leaves no row behind (D42). `products_search` replaces its whole table every minute, so
+  with an empty mirror search returns nothing; `nuke-data` waits for the mirror and refreshes the view.
 
 ### A mistake, and what it cost
 
@@ -535,4 +542,6 @@ The first `make nuke-data`, and the cleanup I ran by hand after it, emptied `sno
 did the same to clean up after tests. The owner's rule is that events and telemetry are tougher to
 populate than orders, so a reset leaves them alone (D42). The rows are gone: `make backfill` (about
 two minutes) and `make generators-start` rebuild the events, and traffic through the cluster rebuilds
-the telemetry, but the history that was there before is not recoverable from here.
+the telemetry, but the history that was there before is not recoverable from here. The first fix
+removed only orders and inventory from Postgres (DELETE/UPDATE) and left ClickHouse alone; the owner
+then asked for the `retail_oltp` mirror to be emptied as well, since the pipe re-ingests a reseed.

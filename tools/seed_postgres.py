@@ -240,40 +240,6 @@ def seed_orders(conn, active: list[int]) -> None:
 
 
 # No parameters are passed with this one, so psycopg leaves the `%` alone.
-def restore_seed(conn) -> dict[str, int]:
-    """
-    Put the data back to what the seed made, without TRUNCATE.
-
-    Orders and customers the storefront added are deleted and every stock level goes
-    back to its starting value. The ClickPipe replicates DELETE and UPDATE, but not
-    TRUNCATE, so truncating a replicated table would leave the removed rows in
-    ClickHouse for good; this is how to reset while the pipe is running.
-    Returns how many rows were removed or changed.
-    """
-    entries = load_catalog()
-    images = image_ids()
-    active = [e["id"] for e in entries if not e.get("flagged_for_deletion") and e["id"] in images]
-    expected = seed_stock(entries, active)
-
-    conn.autocommit = True
-    removed = {
-        "order_items": conn.execute("DELETE FROM order_items WHERE order_id > %s", (N_ORDERS,)).rowcount,
-        "orders": conn.execute("DELETE FROM orders WHERE id > %s", (N_ORDERS,)).rowcount,
-        "customers": conn.execute("DELETE FROM customers WHERE id > %s", (N_CUSTOMERS,)).rowcount,
-    }
-    restored = 0
-    for product_id, quantity in expected.items():
-        restored += conn.execute(
-            "UPDATE stock SET quantity = %s, updated_at = now() WHERE product_id = %s AND quantity <> %s",
-            (quantity, product_id, quantity),
-        ).rowcount
-    # New orders and customers must be numbered from where the seed stopped.
-    conn.execute("SELECT setval(pg_get_serial_sequence('orders', 'id'), %s)", (N_ORDERS,))
-    conn.execute("SELECT setval(pg_get_serial_sequence('customers', 'id'), %s)", (N_CUSTOMERS,))
-    conn.execute("SELECT setval(pg_get_serial_sequence('order_items', 'id'), (SELECT max(id) FROM order_items))")
-    return {**removed, "stock_levels": restored}
-
-
 PLACEHOLDER_COUNT_SQL = "SELECT count(*) FROM products WHERE image_url LIKE '%placeholder%'"
 
 
@@ -295,11 +261,8 @@ def summarise(conn) -> None:
         print(f"  order_items  {one('SELECT count(*) FROM order_items'):>6,}")
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--reset", action="store_true", help="truncate every table, then reseed")
-    ns = ap.parse_args()
-
+def run(reset: bool = False) -> int:
+    """Create the schema and seed the database; with `reset`, truncate every table first."""
     for path, what in ((CATALOG_PATH, "catalogue"), (IMAGES_DIR, "image directory")):
         if not path.exists():
             sys.exit(f"ERROR: {what} not found: {path}")
@@ -309,7 +272,7 @@ def main() -> int:
 
     with pg_connect() as conn:
         apply_schema(conn)
-        if ns.reset:
+        if reset:
             with conn.cursor() as cur:
                 cur.execute(
                     "TRUNCATE order_items, orders, customers, stock, products, categories RESTART IDENTITY CASCADE"
@@ -334,6 +297,12 @@ def main() -> int:
         seed_orders(conn, active)
         summarise(conn)
     return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--reset", action="store_true", help="truncate every table, then reseed")
+    return run(reset=ap.parse_args().reset)
 
 
 if __name__ == "__main__":
