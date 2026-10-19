@@ -37,6 +37,8 @@ and the change is written down below.
 | D27 | The Makefile never parses `.env`: it hands the file to containers with `docker run --env-file`. `.env.example` keeps comments on their own lines. | Proposed |
 | D28 | Postgres TLS: with `PGSSLROOTCERT` (path to the instance's CA bundle, relative to the repo root) every component connects with `verify-full`. Without it the connection is encrypted but the server is not authenticated. `*.pem` is gitignored. | Proposed |
 | D29 | The Snowplow bridge resets Micro **before** it inserts and retries failed inserts from memory, instead of resetting after. Measured loss with the plan's order: 3 of the 9 events one browser session sent (a third); with this order: 0 of 81 across 9 sessions. | Proposed |
+| D30 | The simulator's shoppers use a **workshop funnel** that converts more than the shared one (`bounce_rate` 0.20, `search_rate` 0.40, `pdp_to_cart` 0.20, `cart_to_checkout` 0.95, `checkout_to_purchase` 0.95), unless `SIM_REALISTIC_FUNNEL=true`. The shared rates give about 2.5% of sessions an order: one every seven minutes at the laptop's 6 sessions a minute. The producers keep the realistic rates. | Proposed |
+| D31 | Simulator laptop defaults: 4 concurrent browsers, 6 sessions a minute, dwell scale 0.1, and a **flat** arrival rate (the diurnal curve is opt-in with `SIM_DIURNAL=true`). `.env.example` documents `SIM_SESSIONS` (concurrent browsers) rather than `SIM_MAX_BACKLOG`, which stays an internal queue cap. | Proposed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -279,3 +281,106 @@ the splitter's unit tests, and the frontend (`npm run dev`) reading the seeded d
   freshness after an order, and `make ch-search` on real CDC tables are untested. Search was checked
   against a scratch copy of the real Postgres data built with the real `10_products_search.sql`.
 - Managed ClickStack in the console (above).
+
+## Phase 4: generators and simulator
+
+### Phase 2 and 3 follow-ups, now verified on the real pipe
+
+- **Real ClickPipe tables** match what the tests simulated: non-nullable types (so "Preserve NULLs"
+  off works), `Bool`, `Decimal`, `DateTime64(6)` without a timezone, `_peerdb_is_deleted UInt8`,
+  `_peerdb_version UInt64`, engine `SharedReplacingMergeTree`. `make ch-search` ran twice on them:
+  978 products (887 active), text index used, refresh scheduled.
+- **CDC lag is about 31 s** each way on the pipe as the owner created it. The plan suggests a 10 s
+  sync interval for module 03; that is a pipe setting. A row's `_peerdb_version` is `0` after the
+  initial load and a large LSN-derived number after a CDC change; `count()` is 2 without `FINAL`
+  and 1 with it for a row that changed once.
+- **Managed ClickStack:** the owner launched it and chose `retail_otel`. The collector writes the
+  standard ClickStack tables there, and both OTLP ports (4317 gRPC, 4318 HTTP) are served by the
+  image with no extra configuration.
+- **Browser telemetry works.** The HyperDX SDK logs "apiKey is empty string, telemetry will not be
+  saved", but with no auth on the collector it does save: a simulator run produced browser spans
+  (`HTTP GET`/`POST`, `click`, `resourceFetch`) and 7,910 session-replay rows across 72 sessions.
+  The demo-service request metrics from Phase 3 arrive too.
+
+### What the checks showed (against the owner's Cloud service)
+
+- **Web producer, default live rate:** 11 inserts into `snowplow_events` in 42 s (about one every
+  4-5 s, well inside "about 1 per second per table"), ~900 rows each, 14x smaller on the wire,
+  ~350 ms each, and the server's `written_rows` matched.
+- **Backfill** (`EVENT_MODE=mixed`, 30 days, process mode, 2 workers, flat out): **1,002,158 events in
+  22 s** (about 40k events/s) as **12 inserts, median 100,000 rows**. The plan's 5M events would take
+  under two minutes. The card producer flat out: 403,000 transactions in 6 s as four 100k inserts.
+- **The generated data holds together:** 31 days of history; purchases split card 2,087 / pix 1,249
+  / boleto 822; every card purchase joins to a card transaction by `toUUID(se_property)` and no pix
+  or boleto purchase does; all 887 products referenced exist in `products_search`; anomalies are
+  present in the card data.
+- **`make ch-mvs` on 1,010,588 real events:** the rollups equal the raw counts exactly.
+- **Simulator, 10 minutes, laptop defaults** (second run, after the fixes below): 49 sessions,
+  **16 orders (card 7, pix 4, boleto 5), none failed.** Across both runs the simulator placed 18
+  orders, every one `confirmed` with a browser id, from 18 distinct customers. **Stock fell by
+  exactly the units ordered** (20 units on 16 products), CDC was in sync (2,018 orders both sides),
+  and all 18 orders joined to their `checkout_payment_confirmed` event by `toString(o.id) =
+  se_property` with the same method, visitor and total. The device columns carry real mobile and
+  desktop browsers.
+- **The dashboard moved:** the payments tile gained +7 card, +4 pix, +5 boleto confirmations since a
+  mid-run snapshot, funnel completions went 2,131 to 2,147, and the 17:00 revenue bucket showed the
+  simulator's 17 orders.
+- **The simulator image** (2.84 GB, the Playwright Python base) ran for 90 s in a container.
+- **`make test`:** 40 tests (8 tools, 11 bridge, 21 generators), run in their own images.
+
+### Bugs the live run found
+
+- **Every card payment was counted as declined.** The simulator waited for the confirm button *or*
+  `[role='alert']`, but Next.js keeps a hidden `role="alert"` route announcer on every page, which
+  matched at once while the card was still being authorised. Only boleto and pix, which show the
+  confirm button immediately, went through. The checkout's own error messages now carry
+  `data-testid="checkout-error"`.
+- **The same search twice in a row hung the session.** The plan can pick the same term twice; the
+  header bar then submits the URL it is already on, so no search response ever arrives. The
+  simulator skips a repeated term. Session errors now say which step failed.
+
+### Findings and judgment calls
+
+- **Workshop funnel (D30).** The acceptance test (all three payment methods within 10 minutes) cannot
+  pass at the shared funnel's 2.5% conversion. About one session in six now ends in an order.
+- **Capacity (D31).** The simulator estimates its own need (Little's law, plus ~12 s of page loads).
+  At dwell scale 0.2 a session took ~60 s, so 6 a minute needed ~6 browsers; at 0.1 it is ~35 s and
+  ~3.6 browsers, which makes "4 browsers, 6 a minute" true. The diurnal curve's 2.94x evening peak
+  would need ~17 browsers, so it is off by default.
+- **Catalogue coverage.** A category page shows the 12 cheapest products, so shoppers that only
+  pick visible products would buy the same dozen forever. The simulator pages deeper (45% of
+  product picks come from page 2 or beyond). The items bought have a median price of $86.94
+  against a catalogue median of $250.29, and reach $450.
+- **Language.** Sessions use en-US / pt-BR / es-MX (40/40/20) and search in that language (the 20
+  planned terms are translated by position). An English term on a Portuguese page mostly finds
+  nothing. 5,000 deterministic shoppers (the email carries the pool index) make the `customers`
+  table grow like a store's: new people at first, more repeat customers over time.
+- **Sold out** is detected by the absence of the `add-to-cart` button (the sold-out button is a
+  different, disabled one); a 409 from checkout is read from the API response, not a URL wait.
+- **Reaching the cart and checkout by clicking** keeps the cart and makes `checkout_start` fire (the
+  Phase 3 findings); the simulator also waits for `/checkout/confirmation?order=<id>`.
+- **One writer per table per process** (D3 in the plan). Threads in a process share it; each worker
+  process has its own. Synchronous inserts by default; `CH_ASYNC_INSERT=1` opts in to async.
+- **Payment method weights** are card 0.50, pix 0.30, boleto 0.20 (`PURCHASE_PIX_SHARE` is gone).
+- **Producers' defaults:** 200 events/s and 20 transactions/s, 2 worker threads, `PRODUCE_SITE_URL`
+  `http://localhost:3000`. They read `CLICKHOUSE_USER` (not `_USERNAME`) with the same TLS rule as
+  the other components. `python-dotenv`, `confluent-kafka` and `boto3` are gone.
+- **`make pg-reset` must not be used once the ClickPipe exists.** TRUNCATE is not replicated, so
+  ClickHouse would keep the removed rows. To clean up after a test, delete the extra rows and
+  restore the stock with UPDATE (both replicate). Phase 5's `nuke-data` has to clear the
+  ClickHouse side as well.
+- **Not done:** bumping the Playwright base image from 1.44 (it works), and running any of this in
+  k3d (Phase 5).
+
+### Carried into Phase 5
+
+- Backfill Job: `EVENT_MODE=mixed BACKFILL_DAYS=30 PRODUCE_MAX_EVENTS=5000000
+  PRODUCE_WORKER_MODE=process PRODUCE_WORKERS=<n> PRODUCE_TARGET_EPS=0`; the card producer needs
+  `CC_WORKER_MODE=process CC_TARGET_TPS=0 CC_WORKERS=<n>`. Set the worker counts explicitly: pods
+  see the node's CPU count.
+- Generator variables set by Helm, not in `.env.example`: `PRODUCE_*`, `CC_*`, `CH_*`, `EVENT_MODE`,
+  `BACKFILL_*`, `SIM_URL`, `SIM_DURATION`, `SIM_DIURNAL`, `SIM_REALISTIC_FUNNEL`, `SIM_HEARTBEAT`,
+  `SIM_DRAIN`, `SIM_SEED`. (`PRODUCE_TARGET_EPS`, `CC_TARGET_TPS`, `SIM_SESSIONS`,
+  `SIM_ARRIVALS_PER_MINUTE` and `SIM_DWELL_SCALE` are in `.env.example`.)
+- The simulator needs about 300 MB per browser plus the Chromium base, and its image is 2.8 GB, so
+  `k3d image import` of it is slow; the producers image is 260 MB.
