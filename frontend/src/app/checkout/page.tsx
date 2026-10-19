@@ -424,7 +424,7 @@ export default function CheckoutPage() {
                     already do — an error is the one case where a foreign hue is
                     the point. */}
                 {authError && (
-                  <p role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-red-300 bg-red-50/60 px-4 py-3 text-sm text-red-800">
+                  <p role="alert" data-testid="checkout-error" className="mt-3 flex items-start gap-2 rounded-xl border border-red-300 bg-red-50/60 px-4 py-3 text-sm text-red-800">
                     <span aria-hidden="true" className="mt-[2px] font-bold">!</span>
                     <span>{authError}</span>
                   </p>
@@ -556,7 +556,7 @@ export default function CheckoutPage() {
                 </button>
 
                 {paymentError && (
-                  <p role="alert" className="mx-auto mt-3 max-w-sm rounded-xl border border-red-300 bg-red-950/30 px-4 py-3 text-sm text-red-200">
+                  <p role="alert" data-testid="checkout-error" className="mx-auto mt-3 max-w-sm rounded-xl border border-red-300 bg-red-950/30 px-4 py-3 text-sm text-red-200">
                     {paymentError}
                   </p>
                 )}

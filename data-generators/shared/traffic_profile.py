@@ -449,7 +449,7 @@ PAGE_TITLES = {
     "/category/electronics":    "Electronics – ClickShop",
     "/cart":                    "Cart – ClickShop",
     "/checkout":                "Checkout – ClickShop",
-    "/checkout/success":        "Order confirmed – ClickShop",
+    "/checkout/confirmation":   "Order confirmed – ClickShop",
 }
 
 SEARCH_QUERIES = [
@@ -555,12 +555,11 @@ CURRENCY_WEIGHTS = (
     0.006, 0.004, 0.003, 0.002, 0.002, 0.001,
 )
 
-# Payment method recorded in se_label on checkout_payment_confirmed. Card
-# methods get a matching credit_card_transactions row; pix does not (there is
-# no card behind a pix transfer), so raising the pix share deliberately creates
-# purchases with no transaction.
-PAYMENT_METHODS        = ("credit_card", "pix")
-PAYMENT_METHOD_WEIGHTS = (1.0, 0.0)   # overridden by PURCHASE_PIX_SHARE
+# Payment method recorded in se_label on checkout_payment_confirmed. Only card
+# purchases get a matching credit_card_transactions row: there is no card behind
+# a pix transfer or a boleto, so those purchases legitimately have none.
+PAYMENT_METHODS        = ("credit_card", "pix", "boleto")
+PAYMENT_METHOD_WEIGHTS = (0.50, 0.30, 0.20)
 
 
 def _weighted_pool(items, weights, size: int) -> tuple:
@@ -725,8 +724,8 @@ def build_storefront_transaction(
         WHERE  e.event_name = 'checkout_payment_confirmed'
           AND  t.merchant_name = 'ClickShop'
 
-    Returns None for pix orders — a pix transfer leaves no card transaction, so
-    those purchases legitimately have no counterpart row.
+    Returns None for pix and boleto orders — neither leaves a card transaction,
+    so those purchases legitimately have no counterpart row.
     """
     if order.get("method") != "credit_card":
         return None
@@ -906,13 +905,6 @@ def new_id() -> str:
 # Because the funnel exists in exactly one place, the two generators cannot
 # drift apart — a change to FUNNEL takes effect in both.
 
-# Share of purchases paid by pix rather than a card. Pix leaves no card
-# transaction behind, so at the default 0.0 every purchase has exactly one
-# matching credit_card_transactions row. Raise it (≈0.35 is realistic for
-# Brazil) if you want orders that deliberately have no card transaction.
-PURCHASE_PIX_SHARE = env_float("PURCHASE_PIX_SHARE", 0.0)
-
-
 class Step:
     """One action in a session plan. `dwell` is the pause that follows it."""
 
@@ -988,8 +980,8 @@ class SessionPlan:
 
 
 def pick_payment_method() -> str:
-    """`credit_card` or `pix`, honouring PURCHASE_PIX_SHARE."""
-    return "pix" if random.random() < PURCHASE_PIX_SHARE else "credit_card"
+    """`credit_card`, `pix` or `boleto`, by PAYMENT_METHOD_WEIGHTS."""
+    return random.choices(PAYMENT_METHODS, PAYMENT_METHOD_WEIGHTS)[0]
 
 
 def _default_pick_product(category: str) -> dict:
@@ -1111,7 +1103,7 @@ def plan_session(pick_product=None) -> SessionPlan:
                       label=method, dwell=dwell("think_time")))
     steps.append(Step("payment_confirmed", path="/checkout", value=total,
                       label=method, property_=order_id))
-    steps.append(Step("page_view", path="/checkout/success"))
+    steps.append(Step("page_view", path="/checkout/confirmation"))
 
     order = {
         "order_id":     order_id,

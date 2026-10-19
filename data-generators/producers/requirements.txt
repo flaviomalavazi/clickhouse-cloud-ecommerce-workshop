@@ -1,0 +1,2 @@
+clickhouse-connect==1.1.1
+orjson==3.11.9

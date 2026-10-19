@@ -32,10 +32,6 @@ __pycache__/
 venv/
 env/
 
-# ── Generated data ────────────────────────────────────────────────────────────
-# Credit-card producer file/s3 sink output (NDJSON batches).
-data-generators/output/
-
 # ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
 .AppleDouble

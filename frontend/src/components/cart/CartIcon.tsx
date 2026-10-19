@@ -38,6 +38,7 @@ export function CartIcon() {
   return (
     <Link
       href="/cart"
+      data-testid="cart-link"
       data-cart-target
       className="group relative flex h-11 w-11 items-center justify-center rounded-lg text-ch-200 transition-colors hover:bg-ch-800 hover:text-brand-400"
       aria-label={totalItems > 0 ? tn('a11y.cartItems', totalItems) : t('a11y.cartEmpty')}

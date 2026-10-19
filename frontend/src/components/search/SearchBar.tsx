@@ -49,6 +49,7 @@ export function SearchBar() {
       <input
         ref={inputRef}
         type="search"
+        data-testid="search-input"
         value={query}
         onChange={e => setQuery(e.target.value)}
         onFocus={() => setFocused(true)}

@@ -186,7 +186,7 @@ export default function CartPage() {
             <span className="numeric text-2xl font-bold text-ink-900">{formatPrice(totalPrice)}</span>
           </div>
 
-          <Link href="/checkout" className="btn-primary btn-lg mt-6 w-full">
+          <Link href="/checkout" data-testid="checkout-link" className="btn-primary btn-lg mt-6 w-full">
             {t('cart.checkout')}
             <ArrowRightIcon className="h-[18px] w-[18px]" />
           </Link>

@@ -138,6 +138,7 @@ export function ProductGrid({ initialProducts, total, categorySlug, pageSize }: 
           <button
             onClick={() => loadPage(page + 1)}
             disabled={page === totalPages || loading}
+            data-testid="pagination-next"
             aria-label={t('a11y.nextPage')}
             className="flex h-11 w-11 items-center justify-center rounded-lg border border-line-strong bg-paper
                        text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900
