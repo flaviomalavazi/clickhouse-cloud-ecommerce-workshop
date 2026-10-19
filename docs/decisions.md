@@ -49,6 +49,7 @@ and the change is written down below.
 | D39 | Logs are de-duplicated by label: pods that send logs over OTLP (frontend, demo services) carry `otel.logs: otlp`, and the node collector drops their stdout after `k8sattributes`. | Proposed |
 | D40 | The simulator image is **Chromium only** (1.5 GB, `python:3.12-slim-bookworm` plus `playwright install --with-deps chromium`, Playwright still 1.44.0) instead of the 2.9 GB official image with three browsers. It is loaded onto **one** node, labelled `clickshop/simulator-image`, which the chart's `nodeSelector` asks for. `clickshop-tools` is not loaded into the cluster: it only runs through `docker run`. | Proposed |
 | D41 | `.env.example` no longer lists `SIM_SESSIONS` (amends D31): the number of browsers is `make sim-start USERS=n`, because it sets the pod's memory limit as well. | Proposed |
+| D42 | `make nuke-data` resets **orders and inventory only**: Postgres goes back to the seed through DELETE and UPDATE (which the ClickPipe replicates). It never touches ClickHouse: the web analytics events, the card transactions, the rollups built from them and the ClickStack telemetry in `retail_otel` are slow to rebuild, so no reset removes them. This is the owner's rule; the first version of the command emptied those tables and was wrong. | Confirmed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -377,8 +378,8 @@ the splitter's unit tests, and the frontend (`npm run dev`) reading the seeded d
   the other components. `python-dotenv`, `confluent-kafka` and `boto3` are gone.
 - **`make pg-reset` must not be used once the ClickPipe exists.** TRUNCATE is not replicated, so
   ClickHouse would keep the removed rows. To clean up after a test, delete the extra rows and
-  restore the stock with UPDATE (both replicate). Phase 5's `nuke-data` has to clear the
-  ClickHouse side as well.
+  restore the stock with UPDATE (both replicate). (Phase 5's `nuke-data` was meant to clear the
+  ClickHouse side as well; the owner ruled that out, see D42.)
 - **Not done:** bumping the Playwright base image from 1.44 (it works), and running any of this in
   k3d (Phase 5).
 
@@ -460,9 +461,9 @@ D32 to D41 above are the decisions. This section records what was checked on the
   ClickHouse's tokenizer, so `hasToken(Body, 'card_gateway_unavailable')` is an error and the text
   index search is `hasAllTokens(Body, 'card gateway unavailable')` (4 rows in the check run); a
   substring `ILIKE` finds it too.
-- **`make nuke-data`** (confirmed with `nuke`): stopped the generators and simulator, restored Postgres
-  (11 orders, 11 customers, 12 stock levels back to the seed), emptied 17 generated ClickHouse tables;
-  `make status` then showed Postgres at 2,000 orders and 500 customers and the CDC copy in step.
+- **`make nuke-data`** (confirmed with `nuke`): restored Postgres (11 orders, 11 customers, 12 stock
+  levels back to the seed); `make status` then showed Postgres at 2,000 orders and 500 customers and
+  the CDC copy in step. This first version also emptied 17 ClickHouse tables; see D42 and the mistake below.
 
 ### Bugs the live run found
 
@@ -525,4 +526,13 @@ D32 to D41 above are the decisions. This section records what was checked on the
   it was not a limit on the service. Whether the simulator's load had anything to do with it, and what
   was wrong on the network path, was not found out.
 - **`make nuke-data` does not truncate Postgres** (the ClickPipe does not replicate it): it deletes
-  the added orders and customers and restores the stock, then empties the generated ClickHouse tables.
+  the added orders and customers and restores the stock, and nothing else (D42).
+
+### A mistake, and what it cost
+
+The first `make nuke-data`, and the cleanup I ran by hand after it, emptied `snowplow_events`,
+`credit_card_transactions`, the `analytics_*` rollups and every table in `retail_otel`. Earlier phases
+did the same to clean up after tests. The owner's rule is that events and telemetry are tougher to
+populate than orders, so a reset leaves them alone (D42). The rows are gone: `make backfill` (about
+two minutes) and `make generators-start` rebuild the events, and traffic through the cluster rebuilds
+the telemetry, but the history that was there before is not recoverable from here.

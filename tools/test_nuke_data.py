@@ -1,43 +1,23 @@
-"""Tests for which ClickHouse tables `make nuke-data` truncates."""
+"""`make nuke-data` resets orders and inventory and must never touch ClickHouse."""
 
-from nuke_data import tables_to_truncate
+from pathlib import Path
 
-
-def test_generated_and_rollup_tables_are_truncated():
-    rows = [
-        ("retail_analytics", "snowplow_events", "SharedMergeTree"),
-        ("retail_analytics", "credit_card_transactions", "SharedMergeTree"),
-        ("retail_analytics", "analytics_events_1m", "SharedAggregatingMergeTree"),
-        ("retail_analytics", "analytics_live_events", "SharedMergeTree"),
-    ]
-    assert tables_to_truncate(rows) == sorted((d, t) for d, t, _ in rows)
+import nuke_data
 
 
-def test_search_table_and_views_are_kept():
-    rows = [
-        ("retail_analytics", "products_search", "SharedMergeTree"),
-        ("retail_analytics", "products_search_refresh", "MaterializedView"),
-        ("retail_analytics", "analytics_events_1m_mv", "MaterializedView"),
-    ]
-    assert tables_to_truncate(rows) == []
+def test_nuke_data_does_not_connect_to_clickhouse():
+    # The web analytics events and the ClickStack telemetry are slow to rebuild, so the
+    # reset leaves them alone: nothing in this module may talk to ClickHouse.
+    source = Path(nuke_data.__file__).read_text()
+    for forbidden in ("ch_client", "clickhouse_connect", "TRUNCATE TABLE"):
+        assert forbidden not in source, forbidden
 
 
-def test_every_clickstack_table_is_truncated_but_not_its_views():
-    rows = [
-        ("retail_otel", "otel_logs", "SharedMergeTree"),
-        ("retail_otel", "otel_logs_kv_rollup_15m", "SharedSummingMergeTree"),
-        ("retail_otel", "otel_logs_attr_kv_rollup_15m_mv", "MaterializedView"),
-        ("retail_otel", "hyperdx_sessions", "SharedMergeTree"),
-    ]
-    assert tables_to_truncate(rows) == [
-        ("retail_otel", "hyperdx_sessions"),
-        ("retail_otel", "otel_logs"),
-        ("retail_otel", "otel_logs_kv_rollup_15m"),
-    ]
-
-
-def test_postgres_mirror_tables_are_never_in_the_list():
-    # nuke_data only asks system.tables about retail_analytics and retail_otel, but
-    # the selection must hold even if a row from retail_oltp slipped in.
-    rows = [("retail_oltp", "orders", "SharedReplacingMergeTree")]
-    assert tables_to_truncate(rows) == []
+def test_it_refuses_to_run_without_confirmation(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["nuke_data.py"])
+    try:
+        nuke_data.main()
+    except SystemExit as exc:
+        assert "--yes" in str(exc)
+    else:
+        raise AssertionError("ran without --yes")

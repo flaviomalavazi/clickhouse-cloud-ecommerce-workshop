@@ -182,12 +182,12 @@ check-%: ## Check a module's result: make check-05 (see scripts/checks)
 down: ## Delete the cluster and everything in it (the databases are not touched)
 	@deploy/cluster.sh down
 
-nuke-data: check-env tools-image ## Back to the starting data: Postgres to the seed, ClickHouse generated tables emptied
-	@echo "This restores Postgres to the seed (orders and customers added since are deleted) and empties"
-	@echo "snowplow_events, credit_card_transactions, the analytics_* rollups and everything in retail_otel."
-	@echo "Tables, views, the ClickPipe and products_search are kept."
+nuke-data: check-env tools-image ## Reset orders and inventory to the seed (events and telemetry are kept)
+	@echo "This deletes the orders and customers added since the seed and restores every stock level."
+	@echo "ClickHouse is not touched: web analytics events and telemetry are kept. The ClickPipe brings"
+	@echo "retail_oltp back in step within about a minute."
 	@read -r -p "Type 'nuke' to continue: " a; [ "$$a" = nuke ] || { echo "cancelled"; exit 1; }
-	@if [ -f .workshop/kubeconfig ]; then $(MAKE) --no-print-directory generators-stop sim-stop; fi
+	@if [ -f .workshop/kubeconfig ]; then $(MAKE) --no-print-directory sim-stop; fi
 	@$(TOOLS_RUN) python /app/tools/nuke_data.py --yes
 
 # ── Maintainer only ──────────────────────────────────────────────────────────
