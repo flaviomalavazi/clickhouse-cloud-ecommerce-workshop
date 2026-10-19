@@ -82,9 +82,15 @@ third_party() {
 }
 
 stamp_of() { echo ".workshop/imported/$(printf '%s' "$1" | tr '/:' '__')"; }
+# What identifies an image's content: its layers and its config (command, environment,
+# ports), not its ID. With Docker's containerd image store a cached rebuild gets a new
+# ID every time (the config carries the build time), which would re-import and restart
+# everything on every `make images`.
+fingerprint() {
+  docker image inspect -f '{{json .RootFS.Layers}} {{json .Config}}' "$1" | { shasum -a 256 2>/dev/null || sha256sum; } | cut -d' ' -f1
+}
 needs_import() { # image: true unless the cluster already has exactly this image
-  local id; id=$(docker image inspect -f '{{.Id}}' "$1")
-  [ "$(cat "$(stamp_of "$1")" 2>/dev/null || true)" != "$id" ]
+  [ "$(cat "$(stamp_of "$1")" 2>/dev/null || true)" != "$(fingerprint "$1")" ]
 }
 
 for name in $names; do
@@ -127,14 +133,14 @@ all_nodes=$(docker ps --filter label=k3d.cluster=clickshop --format '{{.Names}}'
 simulator_node=$(deploy/bin/kubectl get nodes -l clickshop/simulator-image=present -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
 [ -n "$simulator_node" ] || simulator_node=$(printf '%s\n' "$all_nodes" | grep -E -- '-agent-[0-9]+$' | sort | head -1)
 
-# Every node keeps its own copy of what it imports (about 1.4 times the image size
+# Every node keeps its own copy of what it imports (about 1.1 times the image size
 # once unpacked), on the one disk Docker has. Refuse to start rather than fill it.
 free_mb() { docker run --rm --entrypoint df clickshop-tools -Pk / 2>/dev/null | awk 'NR == 2 { printf "%d", $4 / 1024 }'; }
 check_room() { # node-count image...
   local nodes=$1 need_mb=500 image size free; shift
   for image in "$@"; do
     size=$(docker image inspect -f '{{.Size}}' "$image")
-    need_mb=$(( need_mb + size / 1048576 * nodes * 14 / 10 ))
+    need_mb=$(( need_mb + size / 1048576 * nodes * 11 / 10 ))
   done
   free=$(free_mb || true)
   if [ -n "$free" ] && [ "$free" -lt "$need_mb" ]; then
@@ -161,7 +167,7 @@ import_into() { # "node node ..." image...   (loads the images and checks every 
     done
   done
   rm -f "$TAR"
-  for image in "$@"; do docker image inspect -f '{{.Id}}' "$image" > "$(stamp_of "$image")"; done
+  for image in "$@"; do fingerprint "$image" > "$(stamp_of "$image")"; done
 }
 
 start=$(date +%s)
