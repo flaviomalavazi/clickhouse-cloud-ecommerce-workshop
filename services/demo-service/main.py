@@ -8,14 +8,17 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
-from opentelemetry import trace
+from opentelemetry import metrics, trace
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -63,6 +66,15 @@ def configure_observability() -> None:
     log_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
     trace.set_tracer_provider(trace_provider)
     set_logger_provider(log_provider)
+
+    # Without a MeterProvider the FastAPI and HTTPX instrumentations record
+    # nothing, so the service would have traces and logs but no request-rate,
+    # error or duration metrics (RED). It must be set before they instrument.
+    metric_exporter = OTLPMetricExporter(endpoint=f"{endpoint.rstrip('/')}/v1/metrics") if endpoint else OTLPMetricExporter()
+    metrics.set_meter_provider(MeterProvider(
+        resource=resource,
+        metric_readers=[PeriodicExportingMetricReader(metric_exporter, export_interval_millis=15_000)],
+    ))
     HTTPXClientInstrumentor().instrument()
 
     stdout_handler = logging.StreamHandler()
@@ -139,6 +151,14 @@ async def run_role(request: Request) -> Response:
     span = trace.get_current_span()
     span.set_attribute("clickshop.source", source)
     span.set_attribute("clickshop.role", ROLE)
+    # The storefront puts the Postgres order id and payment method in the
+    # checkout journeys, so a trace through any service can be found by order.
+    if isinstance(payload, dict):
+        order_id = payload.get("order_id")
+        if isinstance(order_id, (int, str)) and not isinstance(order_id, bool):
+            span.set_attribute("clickshop.order_id", order_id)
+        if payload.get("method"):
+            span.set_attribute("clickshop.payment_method", str(payload["method"]))
 
     if ROLE == "card-gateway":
         timeout_ms = max(0, int(os.getenv("CARD_GATEWAY_TIMEOUT_MS", "0")))
