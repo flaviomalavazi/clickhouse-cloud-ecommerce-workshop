@@ -148,9 +148,11 @@ export const pt: Dictionary = {
   'checkout.confirm': 'Já fiz o pagamento',
   'checkout.processing': 'Processando…',
   'checkout.paymentFailed': 'Não foi possível confirmar o pagamento. Tente novamente.',
+  'checkout.outOfStock': 'Desculpe, um dos itens esgotou enquanto você finalizava a compra. Revise o carrinho.',
   'checkout.back': 'Voltar aos dados',
 
   'confirm.title': 'Pagamento confirmado',
+  'confirm.orderNumber': 'Pedido nº {n}',
   'confirm.body': 'Obrigado pela compra. Seu pedido está sendo processado.',
   'confirm.pitch':
     'Se você gostou desta demo, experimente o ClickHouse Cloud e veja o que mais dá para construir com ele.',
@@ -159,7 +161,7 @@ export const pt: Dictionary = {
   'confirm.seeEvents': 'Ver os eventos chegando',
 
   'search.title': 'Buscar Produtos',
-  'search.hintText': 'Comparado com nome, descrição e marca usando skip indexes full-text do ClickHouse.',
+  'search.hintText': 'Comparado com nome, descrição e marca usando o índice full-text do ClickHouse.',
   'search.placeholder': 'Busque por nome, marca, descrição…',
   'search.submit': 'Buscar',
   'search.results.one': '{n} resultado',
@@ -175,6 +177,7 @@ export const pt: Dictionary = {
   'search.noResultsHintText': 'Tente uma busca mais curta, o nome de uma marca, ou tire o plural.',
   'search.idleTitleText': 'Busque no catálogo',
   'search.idleHintText': 'Os resultados vêm direto do ClickHouse conforme você busca.',
+  'search.partial': 'Nenhum produto contém todas as suas palavras; estes contêm algumas delas.',
 
   'error.title': 'Algo deu errado',
   'error.body': 'Não foi possível carregar esta página agora. Normalmente é temporário, tente de novo.',

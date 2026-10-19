@@ -50,8 +50,11 @@ ch-client: check-env ## Open clickhouse-client on the service (uses the official
 	@docker run --rm -it --env-file .env --entrypoint sh $(CLICKHOUSE_IMAGE) -c \
 	  'exec clickhouse-client --host "$$CLICKHOUSE_HOST" --port $(CLICKHOUSE_NATIVE_TLS_PORT) --secure --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD"'
 
-test: tools-image ## Run the Python unit tests
+test: tools-image ## Run the Python unit tests (tools and the Snowplow bridge)
 	@docker run --rm $(TOOLS_IMAGE) python -m pytest /app/tools -q
+	@docker build -q -t clickshop-snowplow-bridge snowplow-bridge >/dev/null
+	@docker run --rm -v "$(CURDIR)/snowplow-bridge":/app -w /app clickshop-snowplow-bridge \
+	  sh -c 'pip install -q --disable-pip-version-check --root-user-action=ignore pytest && python -m pytest -q'
 
 # ── Maintainer only ──────────────────────────────────────────────────────────
 images-webp: ## Regenerate frontend/public/images from assets/product_images (needs: pip install pillow)

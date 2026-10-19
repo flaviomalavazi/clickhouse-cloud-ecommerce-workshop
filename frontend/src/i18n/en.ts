@@ -171,10 +171,12 @@ export const en = {
   'checkout.confirm': 'I have completed the payment',
   'checkout.processing': 'Processing…',
   'checkout.paymentFailed': 'We could not confirm the payment. Please try again.',
+  'checkout.outOfStock': 'Sorry, one of the items sold out while you were checking out. Please review your cart.',
   'checkout.back': 'Back to details',
 
   // ── Confirmation ─────────────────────────────────────────────────────────
   'confirm.title': 'Payment confirmed',
+  'confirm.orderNumber': 'Order #{n}',
   'confirm.body': 'Thank you for your purchase. Your order is being processed.',
   'confirm.pitch':
     'If you liked this demo, give ClickHouse Cloud a go and see what else you can build with it.',
@@ -184,7 +186,7 @@ export const en = {
 
   // ── Search ───────────────────────────────────────────────────────────────
   'search.title': 'Search Products',
-  'search.hintText': 'Matched against name, description and brand using ClickHouse full-text skip indexes.',
+  'search.hintText': 'Matched against name, description and brand using a ClickHouse full-text index.',
   'search.placeholder': 'Search by name, brand, description…',
   'search.submit': 'Search',
   'search.results.one': '{n} result',
@@ -203,6 +205,7 @@ export const en = {
   'search.noResultsHintText': 'Try a shorter query, a brand name, or drop the plural.',
   'search.idleTitleText': 'Search the catalogue',
   'search.idleHintText': 'Results come straight from ClickHouse as you search.',
+  'search.partial': 'Nothing matches all of your words, so these match some of them.',
 
   // ── Error boundary ───────────────────────────────────────────────────────
   'error.title': 'Something went wrong',

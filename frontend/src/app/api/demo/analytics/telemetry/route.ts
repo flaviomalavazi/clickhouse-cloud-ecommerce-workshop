@@ -12,7 +12,7 @@ import { NextResponse } from 'next/server';
  * Counters are cumulative since the collector started; a restart resets them,
  * which the client treats as a fresh baseline rather than a negative rate.
  */
-const METRICS_URL = process.env.OTEL_COLLECTOR_METRICS_URL ?? 'http://otel-collector:8888/metrics';
+const METRICS_URL = process.env.OTEL_COLLECTOR_METRICS_URL ?? 'http://otel-gateway:8888/metrics';
 
 export interface TelemetrySample {
   at: number;

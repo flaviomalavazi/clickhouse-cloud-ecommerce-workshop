@@ -11,6 +11,10 @@ const MAX_SAMPLES = 30;
 
 interface State {
   results: SearchResult[];
+  /** Products that matched, across all pages. */
+  total: number;
+  /** True when no product held every word, so these hold only some of them. */
+  partial: boolean;
   /** Set once a query has actually been answered. */
   answered: boolean;
   /** The query the current results belong to. */
@@ -21,7 +25,7 @@ interface State {
   last: LatencySample | null;
 }
 const INITIAL: State = {
-  results: [], answered: false, query: '', pending: false, failed: false, samples: [], last: null,
+  results: [], total: 0, partial: false, answered: false, query: '', pending: false, failed: false, samples: [], last: null,
 };
 
 /** Same-document View Transitions, when the browser has them and motion is wanted. */
@@ -57,8 +61,8 @@ function commit(apply: () => void) {
  */
 export function useInstantSearch(onSettled?: (query: string, count: number) => void) {
   const [state, setState] = useState<State>(INITIAL);
-  // Sent to /api/search/text so the route knows which per-locale tokenbf columns
-  // to search. The locale lives only in the client, so the server cannot infer it.
+  // Sent to /api/search/text so the route knows which per-locale text index to
+  // search. The locale lives only in the client, so the server cannot infer it.
   const { locale } = useI18n();
 
   const timings = useRef(new Map<string, LatencySample>());
@@ -108,6 +112,8 @@ export function useInstantSearch(onSettled?: (query: string, count: number) => v
       if (!res.ok) throw new Error(`Search failed: ${res.status}`);
       const data = await res.json();
       const results: SearchResult[] = Array.isArray(data?.results) ? data.results : [];
+      const total = typeof data?.total === 'number' ? data.total : results.length;
+      const partial = data?.partial === true;
 
       // The observer callback is queued as its own task, so yield one frame
       // before reading the entry it will have written.
@@ -121,6 +127,8 @@ export function useInstantSearch(onSettled?: (query: string, count: number) => v
       commit(() => {
         setState(s => ({
           results,
+          total,
+          partial,
           answered: true,
           query,
           pending: false,
@@ -130,7 +138,7 @@ export function useInstantSearch(onSettled?: (query: string, count: number) => v
         }));
       });
 
-      settled.current?.(query, results.length);
+      settled.current?.(query, total);
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return;
       if (seq !== requestSeq.current) return;
@@ -146,7 +154,7 @@ export function useInstantSearch(onSettled?: (query: string, count: number) => v
     if (!trimmed) {
       controller.current?.abort();
       requestSeq.current++;
-      commit(() => setState(s => ({ ...s, results: [], answered: false, query: '', pending: false, failed: false })));
+      commit(() => setState(s => ({ ...s, results: [], total: 0, partial: false, answered: false, query: '', pending: false, failed: false })));
       return;
     }
 

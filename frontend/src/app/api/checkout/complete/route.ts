@@ -1,39 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { postStorefrontJourney } from '@/lib/storefront-bff';
+import { OrderError, parseOrderRequest, placeOrder } from '@/lib/orders';
 
-const JOURNEY_BY_METHOD = {
-  pix: '/v1/journeys/checkout/pix',
-  boleto: '/v1/journeys/checkout/boleto',
-  credit_card: '/v1/journeys/order',
-} as const;
-
+/**
+ * Places the order: writes it to Postgres, runs the payment journey, and settles
+ * it. Answers `{ order_id, status }` on success.
+ *
+ *   400 invalid_request          the body is malformed
+ *   409 out_of_stock             a unit was taken since the shopper added it
+ *   409 product_unavailable      a product is gone or inactive
+ *   502 storefront_bff_unavailable / the payment journey's own failure
+ *                                the order is cancelled and its stock restored
+ */
 export async function POST(request: NextRequest) {
-  const body: unknown = await request.json().catch(() => ({}));
-  const rawMethod = typeof body === 'object' && body !== null
-    ? (body as { method?: unknown }).method
-    : undefined;
-  const method: keyof typeof JOURNEY_BY_METHOD | null =
-    rawMethod === 'pix' || rawMethod === 'boleto' || rawMethod === 'credit_card'
-      ? rawMethod
-      : null;
-  if (!method) {
-    return NextResponse.json({ error: 'Unsupported payment method' }, { status: 400 });
-  }
+  try {
+    const req = parseOrderRequest(await request.json().catch(() => null));
+    const placed = await placeOrder(req);
 
-  const response = await postStorefrontJourney(JOURNEY_BY_METHOD[method], body);
-  if (!response) {
-    return NextResponse.json(
-      { error: 'storefront_bff_unavailable', retryable: true },
-      { status: 502, headers: { 'Retry-After': '5' } },
-    );
-  }
+    if (placed.ok) {
+      return NextResponse.json({ order_id: placed.orderId, status: placed.status });
+    }
 
-  if (response.status >= 400) {
+    const { upstream } = placed;
+    if (!upstream) {
+      return NextResponse.json(
+        { error: 'storefront_bff_unavailable', retryable: true, order_id: placed.orderId },
+        { status: 502, headers: { 'Retry-After': '5' } },
+      );
+    }
     const headers = new Headers();
-    if (response.contentType) headers.set('Content-Type', response.contentType);
-    if (response.retryAfter) headers.set('Retry-After', response.retryAfter);
-    return new NextResponse(response.body, { status: response.status, headers });
+    if (upstream.contentType) headers.set('Content-Type', upstream.contentType);
+    if (upstream.retryAfter) headers.set('Retry-After', upstream.retryAfter);
+    return new NextResponse(upstream.body, { status: upstream.status, headers });
+  } catch (err) {
+    if (err instanceof OrderError) {
+      return NextResponse.json({ error: err.code, ...err.detail }, { status: err.status });
+    }
+    console.error('POST /api/checkout/complete error:', err);
+    return NextResponse.json({ error: 'order_failed' }, { status: 500 });
   }
-
-  return new NextResponse(null, { status: 204 });
 }

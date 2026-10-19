@@ -14,9 +14,6 @@ export async function register() {
   const { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } = await import('@opentelemetry/semantic-conventions');
 
   const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318';
-  const authHeaders  = process.env.OTEL_AUTH_HEADER
-    ? { Authorization: process.env.OTEL_AUTH_HEADER }
-    : {};
 
   const sdk = new NodeSDK({
     resource: new Resource({
@@ -25,20 +22,17 @@ export async function register() {
       'deployment.environment':      process.env.NODE_ENV ?? 'development',
     }),
     traceExporter: new OTLPTraceExporter({
-      url:     `${otlpEndpoint}/v1/traces`,
-      headers: authHeaders,
+      url: `${otlpEndpoint}/v1/traces`,
     }),
     metricReader: new PeriodicExportingMetricReader({
       exportIntervalMillis: 60_000,
       exporter: new OTLPMetricExporter({
-        url:     `${otlpEndpoint}/v1/metrics`,
-        headers: authHeaders,
+        url: `${otlpEndpoint}/v1/metrics`,
       }),
     }) as any,
     logRecordProcessor: new BatchLogRecordProcessor(
       new OTLPLogExporter({
-        url:     `${otlpEndpoint}/v1/logs`,
-        headers: authHeaders,
+        url: `${otlpEndpoint}/v1/logs`,
       })
     ),
     instrumentations: [

@@ -5,10 +5,25 @@ type CHClient = ReturnType<typeof createClient>;
 
 let client: CHClient | undefined;
 
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', 'host.docker.internal'];
+
+/**
+ * The service's HTTP(S) endpoint, built from the same CLICKHOUSE_HOST and
+ * CLICKHOUSE_PORT every other component reads. TLS is on unless the host is
+ * local or CLICKHOUSE_SECURE says otherwise (a local test database).
+ */
+export function clickhouseUrl(): string {
+  const host = process.env.CLICKHOUSE_HOST?.trim() || 'localhost';
+  const port = process.env.CLICKHOUSE_PORT?.trim() || '8443';
+  const secureEnv = process.env.CLICKHOUSE_SECURE?.trim().toLowerCase();
+  const secure = secureEnv ? !['0', 'false', 'no'].includes(secureEnv) : !LOCAL_HOSTS.includes(host);
+  return `${secure ? 'https' : 'http'}://${host}:${port}`;
+}
+
 export function getClickHouseClient(): CHClient {
   if (!client) {
     const raw = createClient({
-      url:      process.env.CLICKHOUSE_URL ?? 'http://localhost:8123',
+      url:      clickhouseUrl(),
       database: process.env.CLICKHOUSE_DATABASE ?? 'retail_analytics',
       username: process.env.CLICKHOUSE_USER ?? 'default',
       password: process.env.CLICKHOUSE_PASSWORD ?? '',

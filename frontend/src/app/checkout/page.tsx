@@ -8,6 +8,7 @@ import { PixWordmark, PixMark, PIX_TEAL } from '@/components/cart/PixLogo';
 import { useFormatPrice } from '@/components/ui/Price';
 import { ArrowLeftIcon, ArrowRightIcon, BarcodeIcon, CheckIcon } from '@/components/ui/Icon';
 import {
+  getDomainUserId,
   trackCheckoutStart,
   trackPaymentInitiated,
   trackPaymentConfirmed,
@@ -182,10 +183,19 @@ export default function CheckoutPage() {
     setConfirming(true);
     setPaymentError(null);
     const processing = new Promise<void>(resolve => setTimeout(resolve, 1200));
+    // The server prices the order from the database; what is sent here is only
+    // which products, how many, and who is buying. domain_userid ties the order
+    // to this browser's clickstream.
     const paymentJourney = fetch('/api/checkout/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ method, amount: totalPrice, item_count: items.length }),
+      body: JSON.stringify({
+        method,
+        name,
+        email,
+        domain_userid: getDomainUserId(),
+        items: items.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
+      }),
     });
     // The service journey is awaited beside, rather than after, the established
     // 1.2-second confirmation timing. No successful UI or Snowplow event is
@@ -193,12 +203,18 @@ export default function CheckoutPage() {
     try {
       const [, response] = await Promise.all([processing, paymentJourney]);
       if (!response.ok) {
-        setPaymentError(t('checkout.paymentFailed'));
+        // Somebody else took the last unit: the cart stays, so the visitor can
+        // adjust it rather than start again.
+        const failure = await response.json().catch(() => null);
+        setPaymentError(t(failure?.error === 'out_of_stock' || failure?.error === 'product_unavailable'
+          ? 'checkout.outOfStock'
+          : 'checkout.paymentFailed'));
         return;
       }
-      trackPaymentConfirmed(totalPrice, method);
+      const { order_id: orderId } = await response.json();
+      trackPaymentConfirmed(totalPrice, method, orderId);
       setPaid(true);
-      router.push('/checkout/confirmation');
+      router.push(`/checkout/confirmation?order=${encodeURIComponent(orderId)}`);
       clearCart();
     } catch {
       setPaymentError(t('checkout.paymentFailed'));
