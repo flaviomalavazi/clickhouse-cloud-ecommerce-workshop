@@ -1,43 +1,56 @@
-"""Tests for which ClickHouse tables `make nuke-data` truncates."""
+"""`make nuke-data` empties the Postgres mirror in ClickHouse and nothing else there."""
 
-from nuke_data import tables_to_truncate
+import ast
+from pathlib import Path
+
+import nuke_data
 
 
-def test_generated_and_rollup_tables_are_truncated():
+def test_only_the_mirror_tables_are_emptied():
     rows = [
-        ("retail_analytics", "snowplow_events", "SharedMergeTree"),
-        ("retail_analytics", "credit_card_transactions", "SharedMergeTree"),
-        ("retail_analytics", "analytics_events_1m", "SharedAggregatingMergeTree"),
-        ("retail_analytics", "analytics_live_events", "SharedMergeTree"),
+        ("categories", "SharedReplacingMergeTree"),
+        ("orders", "SharedReplacingMergeTree"),
+        ("order_items", "SharedReplacingMergeTree"),
+        ("stock", "SharedReplacingMergeTree"),
     ]
-    assert tables_to_truncate(rows) == sorted((d, t) for d, t, _ in rows)
+    assert nuke_data.oltp_tables_to_truncate(rows) == ["categories", "order_items", "orders", "stock"]
 
 
-def test_search_table_and_views_are_kept():
+def test_the_pipes_own_tables_and_views_are_kept():
     rows = [
-        ("retail_analytics", "products_search", "SharedMergeTree"),
-        ("retail_analytics", "products_search_refresh", "MaterializedView"),
-        ("retail_analytics", "analytics_events_1m_mv", "MaterializedView"),
+        ("_peerdb_raw_mirror_ad9d2c04__e4f2__4fbc__a86b__b6d896f15625", "SharedMergeTree"),
+        ("orders", "SharedReplacingMergeTree"),
+        ("orders_view", "View"),
+        ("orders_mv", "MaterializedView"),
     ]
-    assert tables_to_truncate(rows) == []
+    assert nuke_data.oltp_tables_to_truncate(rows) == ["orders"]
 
 
-def test_every_clickstack_table_is_truncated_but_not_its_views():
-    rows = [
-        ("retail_otel", "otel_logs", "SharedMergeTree"),
-        ("retail_otel", "otel_logs_kv_rollup_15m", "SharedSummingMergeTree"),
-        ("retail_otel", "otel_logs_attr_kv_rollup_15m_mv", "MaterializedView"),
-        ("retail_otel", "hyperdx_sessions", "SharedMergeTree"),
+def test_in_step_needs_every_table_to_match():
+    postgres = {"orders": 2000, "customers": 500}
+    assert nuke_data.in_step(postgres, {"orders": 2000, "customers": 500})
+    assert not nuke_data.in_step(postgres, {"orders": 2000, "customers": 499})
+    assert not nuke_data.in_step(postgres, {"orders": 2000})  # a missing table is not in step
+
+
+def test_the_module_names_no_events_or_telemetry_table():
+    # The web analytics events and the ClickStack telemetry are slow to rebuild, so the
+    # reset must never name them. Strings in the code (not the docstring) are checked.
+    tree = ast.parse(Path(nuke_data.__file__).read_text())
+    docstring = ast.get_docstring(tree, clean=False)
+    strings = [
+        node.value for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value != docstring
     ]
-    assert tables_to_truncate(rows) == [
-        ("retail_otel", "hyperdx_sessions"),
-        ("retail_otel", "otel_logs"),
-        ("retail_otel", "otel_logs_kv_rollup_15m"),
-    ]
+    for forbidden in ("retail_otel", "snowplow_events", "credit_card_transactions", "analytics_"):
+        assert not any(forbidden in text for text in strings), forbidden
 
 
-def test_postgres_mirror_tables_are_never_in_the_list():
-    # nuke_data only asks system.tables about retail_analytics and retail_otel, but
-    # the selection must hold even if a row from retail_oltp slipped in.
-    rows = [("retail_oltp", "orders", "SharedReplacingMergeTree")]
-    assert tables_to_truncate(rows) == []
+def test_it_refuses_to_run_without_confirmation(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["nuke_data.py"])
+    try:
+        nuke_data.main()
+    except SystemExit as exc:
+        assert "--yes" in str(exc)
+    else:
+        raise AssertionError("ran without --yes")
