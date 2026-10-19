@@ -2,16 +2,21 @@
 """
 Snowplow Micro → ClickHouse bridge.
 
-Polls /micro/good every POLL_INTERVAL seconds, maps enriched events to the
-snowplow_events ClickHouse schema, inserts them, then resets Micro.
+Polls /micro/good every POLL_INTERVAL seconds, resets Micro right away, maps the
+enriched events to the snowplow_events ClickHouse schema and inserts them,
+retrying from memory if the insert fails.
 
-Connects via HTTP/HTTPS using clickhouse-connect, which supports both local
-ClickHouse (http://clickhouse:8123) and ClickHouse Cloud (https://...8443).
+Connects to ClickHouse Cloud over HTTPS with clickhouse-connect, using the same
+CLICKHOUSE_HOST / CLICKHOUSE_PORT / CLICKHOUSE_USER / CLICKHOUSE_PASSWORD as every
+other component.
+
+Device columns come from the YAUAA context Micro derives when it runs with
+`--yauaa` (see device_from_yauaa).
 """
 import os
+import sys
 import time
 from datetime import datetime, timezone
-from urllib.parse import urlparse
 
 import requests
 import clickhouse_connect
@@ -27,19 +32,19 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.trace import SpanKind, StatusCode
 
 MICRO_URL       = os.environ.get('SNOWPLOW_MICRO_URL',    'http://snowplow-micro:9090')
-# Ingest-specific vars take priority; fall back to the shared CLICKHOUSE_* vars
-# so local dev (single user) requires no extra configuration.
-CLICKHOUSE_URL  = os.environ.get('CLICKHOUSE_INGEST_URL')      or os.environ.get('CLICKHOUSE_URL',      'http://clickhouse:8123')
-CH_USER         = os.environ.get('CLICKHOUSE_INGEST_USER')     or os.environ.get('CLICKHOUSE_USER',     'default')
-CH_PASSWORD     = os.environ.get('CLICKHOUSE_INGEST_PASSWORD') or os.environ.get('CLICKHOUSE_PASSWORD', '')
-CH_DB           = os.environ.get('CLICKHOUSE_DB',         'retail_analytics')
+CH_HOST         = os.environ.get('CLICKHOUSE_HOST', '')
+CH_PORT         = int(os.environ.get('CLICKHOUSE_PORT', '8443') or '8443')
+CH_USER         = os.environ.get('CLICKHOUSE_USER',     'default')
+CH_PASSWORD     = os.environ.get('CLICKHOUSE_PASSWORD', '')
+CH_DB           = os.environ.get('CLICKHOUSE_DATABASE', 'retail_analytics')
 POLL_INTERVAL   = float(os.environ.get('POLL_INTERVAL_SECONDS', '2'))
-OTEL_ENDPOINT   = os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://otel-collector:4318')
+OTEL_ENDPOINT   = os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://otel-gateway:4318')
 
-_parsed  = urlparse(CLICKHOUSE_URL)
-_CH_HOST   = _parsed.hostname or 'clickhouse'
-_CH_PORT   = _parsed.port or (8443 if _parsed.scheme == 'https' else 8123)
-_CH_SECURE = _parsed.scheme == 'https'
+# TLS unless the host is local or CLICKHOUSE_SECURE says otherwise (a local test
+# database).
+_LOCAL_HOSTS = ('localhost', '127.0.0.1', 'host.docker.internal')
+_secure_env = os.environ.get('CLICKHOUSE_SECURE', '').strip().lower()
+CH_SECURE   = (_secure_env not in ('0', 'false', 'no')) if _secure_env else CH_HOST not in _LOCAL_HOSTS
 
 # The bridge flushes every POLL_INTERVAL seconds (2s by default), which meant one
 # new part roughly every 2 seconds - ~30 parts a minute for the background merger
@@ -87,15 +92,15 @@ def connect_clickhouse() -> clickhouse_connect.driver.Client:
     for attempt in range(15):
         try:
             client = clickhouse_connect.get_client(
-                host=_CH_HOST,
-                port=_CH_PORT,
+                host=CH_HOST,
+                port=CH_PORT,
                 username=CH_USER,
                 password=CH_PASSWORD,
                 database=CH_DB,
-                secure=_CH_SECURE,
+                secure=CH_SECURE,
             )
             client.ping()
-            print(f'[bridge] Connected to ClickHouse at {CLICKHOUSE_URL}')
+            print(f'[bridge] Connected to ClickHouse at {CH_HOST}:{CH_PORT}')
             return client
         except Exception as e:
             print(f'[bridge] ClickHouse not ready ({e}), retrying…')
@@ -140,6 +145,40 @@ def extract_ctx(se_category: str, se_label: str, se_property: str):
     return ctx_product_id, ctx_category_slug, ctx_search_query, ctx_search_type
 
 
+# YAUAA names -> the values the web producer's device profiles use, so browser rows
+# and generated rows group together in the dashboard's Devices tile.
+_DEVICE_CLASS = {'Desktop': 'Computer', 'Phone': 'Mobile', 'Mobile': 'Mobile', 'Tablet': 'Tablet'}
+_MOBILE = ('Mobile', 'Tablet')
+
+
+def device_from_yauaa(ev: dict) -> tuple[str, str, str]:
+    """(br_family, os_family, dvce_type) from the YAUAA context, or empty strings."""
+    contexts = (ev.get('derived_contexts') or {}).get('data') or []
+    yauaa = next(
+        (c.get('data') or {} for c in contexts
+         if str(c.get('schema', '')).startswith('iglu:nl.basjes/yauaa_context/')),
+        None,
+    )
+    if not yauaa:
+        return '', '', ''
+
+    dvce_type = _DEVICE_CLASS.get(str(yauaa.get('deviceClass', '')), '')
+    browser = str(yauaa.get('agentName', ''))
+    if browser in ('', 'Unknown'):
+        browser = ''
+    elif dvce_type in _MOBILE:
+        browser = 'Mobile Safari' if browser == 'Safari' else f'{browser} Mobile'
+
+    os_name = str(yauaa.get('operatingSystemName', ''))
+    if os_name.startswith('Windows'):
+        os_name = str(yauaa.get('operatingSystemNameVersionMajor', '')) or 'Windows'
+    elif os_name == 'Mac OS':
+        os_name = 'Mac OS X'
+    elif os_name == 'Unknown':
+        os_name = ''
+    return browser, os_name, dvce_type
+
+
 def map_event(micro_event: dict) -> dict:
     # Snowplow Micro wraps the enriched event under the 'event' key
     ev = micro_event.get('event') or {}
@@ -164,6 +203,7 @@ def map_event(micro_event: dict) -> dict:
         se_value = 0.0
 
     ctx = extract_ctx(se_category, se_label, se_property)
+    yauaa_browser, yauaa_os, yauaa_device = device_from_yauaa(ev)
 
     return {
         'event_id':            str(ev.get('event_id')            or ''),
@@ -173,9 +213,8 @@ def map_event(micro_event: dict) -> dict:
         'platform':            str(ev.get('platform')            or ''),
         'domain_userid':       str(ev.get('domain_userid')       or ''),
         'domain_sessionid':    str(ev.get('domain_sessionid')    or ''),
-        # Snowplow's authenticated-user field, set via setUserId() in the
-        # browser tracker (frontend/src/lib/snowplow.ts) or emitted directly
-        # by the generators. Empty string = anonymous.
+        # Snowplow's authenticated-user field. The workshop has no sign-in, so
+        # this is always empty (anonymous); the column matches the table schema.
         'user_id':             str(ev.get('user_id')             or ''),
         'user_ipaddress':      str(ev.get('user_ipaddress')      or ''),
         'event':               event_type,
@@ -191,9 +230,10 @@ def map_event(micro_event: dict) -> dict:
         'se_value':            se_value,
         'unstruct_event':      '',
         'useragent':           str(ev.get('useragent')           or ''),
-        'br_family':           str(ev.get('br_family')           or ''),
-        'os_family':           str(ev.get('os_family')           or ''),
-        'dvce_type':           str(ev.get('dvce_type')           or ''),
+        # Micro leaves these empty; they come from the YAUAA context.
+        'br_family':           str(ev.get('br_family')           or yauaa_browser),
+        'os_family':           str(ev.get('os_family')           or yauaa_os),
+        'dvce_type':           str(ev.get('dvce_type')           or yauaa_device),
         'geo_country':         str(ev.get('geo_country')         or ''),
         'geo_city':            str(ev.get('geo_city')            or ''),
         'ctx_product_id':      ctx[0],
@@ -201,6 +241,12 @@ def map_event(micro_event: dict) -> dict:
         'ctx_search_query':    ctx[2],
         'ctx_search_type':     ctx[3],
     }
+
+
+# Events taken out of Micro but not yet inserted. The insert can fail (ClickHouse
+# unreachable, a timeout), so they are kept and retried on the next cycle.
+_pending: list[dict] = []
+MAX_PENDING = 100_000
 
 
 def flush(ch: clickhouse_connect.driver.Client, counters: dict) -> None:
@@ -216,23 +262,36 @@ def flush(ch: clickhouse_connect.driver.Client, counters: dict) -> None:
             print(f'[bridge] Error fetching events from Micro: {e}')
             return
 
-        if not raw:
-            span.set_attribute('snowplow.events.fetched', 0)
-            return
-
         span.set_attribute('snowplow.events.fetched', len(raw))
 
-        rows = []
-        for item in raw:
+        if raw:
+            # Take the events out of Micro now, before the insert. Against Cloud
+            # the insert takes over a second, and anything Micro received while
+            # it ran would be wiped by a reset made afterwards: a third of the events
+            # in a measured browsing session were lost that way. If the reset fails
+            # the events stay in Micro, so leave them there for the next cycle
+            # rather than insert them twice.
             try:
-                rows.append(map_event(item))
-            except Exception as ex:
-                print(f'[bridge] Skipping malformed event: {ex}')
-                counters['events_failed'].add(1)
+                requests.post(f'{MICRO_URL}/micro/reset', timeout=5).raise_for_status()
+            except Exception as e:
+                print(f'[bridge] Could not reset Micro ({e}); retrying next cycle')
+                return
+            for item in raw:
+                try:
+                    _pending.append(map_event(item))
+                except Exception as ex:
+                    print(f'[bridge] Skipping malformed event: {ex}')
+                    counters['events_failed'].add(1)
+            if len(_pending) > MAX_PENDING:
+                dropped = len(_pending) - MAX_PENDING
+                del _pending[:dropped]
+                counters['events_failed'].add(dropped)
+                print(f'[bridge] Insert backlog full: dropped the {dropped} oldest event(s)')
 
-        if not rows:
+        if not _pending:
             return
 
+        rows = list(_pending)
         try:
             with tracer.start_as_current_span(
                 'clickhouse.insert',
@@ -247,21 +306,16 @@ def flush(ch: clickhouse_connect.driver.Client, counters: dict) -> None:
                 ch.insert('snowplow_events', data, column_names=COLUMN_NAMES,
                           settings=INSERT_SETTINGS)
                 insert_span.set_attribute('snowplow.events.inserted', len(rows))
-            counters['events_inserted'].add(len(rows))
-            span.set_attribute('snowplow.events.inserted', len(rows))
-            print(f'[bridge] Inserted {len(rows)} event(s)')
         except Exception as e:
             span.set_status(StatusCode.ERROR, str(e))
             span.record_exception(e)
-            counters['events_failed'].add(len(rows))
-            print(f'[bridge] ClickHouse insert error: {e}')
-            return  # Don't reset Micro if insert failed — retry next cycle
+            print(f'[bridge] ClickHouse insert error, keeping {len(rows)} event(s) to retry: {e}')
+            return
 
-        # Only reset after a successful insert so no events are lost
-        try:
-            requests.post(f'{MICRO_URL}/micro/reset', timeout=5)
-        except Exception as e:
-            print(f'[bridge] Warning: could not reset Micro ({e})')
+        del _pending[:len(rows)]
+        counters['events_inserted'].add(len(rows))
+        span.set_attribute('snowplow.events.inserted', len(rows))
+        print(f'[bridge] Inserted {len(rows)} event(s)')
 
 
 def setup_telemetry():
@@ -297,7 +351,9 @@ def setup_telemetry():
 
 
 def main() -> None:
-    print(f'[bridge] Micro={MICRO_URL}  CH={CLICKHOUSE_URL}/{CH_DB}  poll={POLL_INTERVAL}s')
+    if not CH_HOST:
+        sys.exit('[bridge] ERROR: CLICKHOUSE_HOST is not set')
+    print(f'[bridge] Micro={MICRO_URL}  CH={CH_HOST}:{CH_PORT}/{CH_DB}  poll={POLL_INTERVAL}s')
     counters = setup_telemetry()
     wait_for_micro()
     ch = connect_clickhouse()
