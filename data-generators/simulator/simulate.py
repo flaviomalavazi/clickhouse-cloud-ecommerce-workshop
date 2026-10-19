@@ -3,40 +3,42 @@
 ClickShop traffic simulator
 ============================
 
-Simulates realistic e-commerce user sessions against a running ClickShop
-instance by driving a real headless Chromium browser via Playwright: the JS
-tracker in the page fires the Snowplow events itself, and the page's HyperDX
-SDK emits the browser telemetry. The frontend must be reachable at --url.
+Simulates realistic e-commerce shoppers against a running ClickShop instance by
+driving a real headless Chromium browser via Playwright: the JS tracker in the
+page fires the Snowplow events itself, and the page's HyperDX SDK emits the
+browser telemetry. The frontend must be reachable at --url. Shoppers that reach
+checkout place real orders: they are written to Postgres, decrement stock, and
+flow on to ClickHouse through the CDC ClickPipe.
 
 Sessions arrive as a Poisson process and follow the funnel defined in
-traffic_profile.py — the same file the producers read, so both generators
-emit the same funnel.
+traffic_profile.py — the same file the producers read, so both generators emit
+the same funnel (see config.apply_workshop_funnel for the one difference).
 
-Diurnal arrival rate
---------------------
-By default `--arrivals-per-minute` is the *daily average*. The instantaneous
-rate is scaled by the hour-of-day curve in traffic_profile.HOURLY_WEIGHTS, so a
-long-running simulation produces ~0.10× that rate at the 04:00 trough and
-~2.94× at the 20:00 peak (UTC-03), averaging out to the configured value over a
-full day. Pass --no-diurnal for a flat rate.
+Arrival rate
+------------
+By default `--arrivals-per-minute` is a flat rate, so the load is predictable.
+With --diurnal it is the *daily average* instead, scaled by the hour-of-day curve
+in traffic_profile.HOURLY_WEIGHTS: ~0.10× at the 04:00 trough and ~2.94× at the
+20:00 peak (UTC-03). That peak needs almost three times the browsers, so it is
+meant for a long run on a machine with room for them.
 
 Throughput
 ----------
-A session holds a concurrency slot for its whole duration (~186 s of dwell by
-default), so sustained arrivals need `--sessions` ≈ arrivals/s × duration.
-`--dwell-scale` compresses every dwell time: at 0.05 a session finishes in ~9 s
-and the same concurrency drives ~20× the sessions. Every concurrent session is
-a browser context, so keep `--sessions` small. The simulator prints the
-concurrency it needs at startup and warns if `--sessions` is short.
+A session holds a browser for its whole duration, so sustained arrivals need
+`--sessions` ≈ arrivals/s × duration (Little's law). `--dwell-scale` compresses
+every dwell time: at 1.0 a session lasts minutes; at the default 0.1 about 35 s
+including page loads, which is why 6 arrivals a minute needs about 4 browsers. Each browser costs about
+300 MB. The simulator prints the concurrency it needs at startup and warns if
+`--sessions` is short.
 
 Usage examples
 --------------
   # Quick test against a local stack
-  python simulate.py --url http://localhost:3000 --duration 120 --sessions 4
+  python simulate.py --url http://localhost:3000 --duration 120
 
-  # Run forever with a realistic diurnal curve
+  # Run until stopped, with more shoppers
   python simulate.py --url http://localhost:3000 \\
-      --duration 0 --sessions 4 --arrivals-per-minute 6
+      --duration 0 --sessions 8 --arrivals-per-minute 12
 """
 
 from __future__ import annotations
@@ -58,10 +60,15 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 import config
+import identity
 
 # session_browser imports Playwright at module scope, so it is loaded lazily.
 # (Importing it here made the "playwright is not installed" check in main()
 # unreachable — the import crashed first.)
+
+# Time a session spends loading pages and waiting for responses, on top of its
+# dwell times. It does not shrink with --dwell-scale.
+NAVIGATION_OVERHEAD_S = 12.0
 
 
 def _setup_telemetry(frontend_url: str) -> None:
@@ -94,20 +101,8 @@ class Stats:
         return self._data.get(key, 0)
 
     def print_summary(self, elapsed: float) -> None:
-        s = self._data
-        sessions   = s.get("sessions_started", 0)
-        completed  = s.get("sessions_completed", 0)
-        page_views = s.get("page_views", 0)
-        bounces    = s.get("bounces", 0)
-        searches   = s.get("searches", 0)
-        scrolls    = s.get("scrolls", 0)
-        clicks     = s.get("product_clicks", 0)
-        carts      = s.get("add_to_cart", 0)
-        checkouts  = s.get("checkout_starts", 0)
-        purchases  = s.get("purchases", 0)
-        sent       = s.get("events_sent", 0)
-        failed     = s.get("events_failed", 0)
-        dropped    = s.get("arrivals_dropped", 0)
+        g = self.get
+        sessions = g("sessions_started")
 
         def pct(n: int) -> str:
             return f"{n / sessions * 100:.1f}%" if sessions else "n/a"
@@ -116,24 +111,24 @@ class Stats:
         print(f"  Simulation complete  ({elapsed:.0f}s)")
         print("─" * 56)
         print(f"  Sessions started     {sessions:>10,}")
-        print(f"  Sessions completed   {completed:>10,}")
-        print(f"  Bounce rate          {pct(bounces):>10}")
-        print(f"  Page views           {page_views:>10,}")
-        print(f"  Scroll events        {scrolls:>10,}")
-        print(f"  Searches             {searches:>10,}")
-        print(f"  Product clicks       {clicks:>10,}")
-        print(f"  Add-to-cart          {carts:>10,}")
-        print(f"  Checkouts started    {checkouts:>10,}")
-        print(f"  Purchases            {purchases:>10,}")
-        print(f"  Conversion rate      {pct(purchases):>10}")
+        print(f"  Sessions completed   {g('sessions_completed'):>10,}")
+        print(f"  Session errors       {g('session_errors'):>10,}")
+        print(f"  Bounce rate          {pct(g('bounces')):>10}")
+        print(f"  Page views           {g('page_views'):>10,}")
+        print(f"  Searches             {g('searches'):>10,}")
+        print(f"  Product views        {g('product_clicks'):>10,}")
+        print(f"  Added to cart        {g('cart_adds'):>10,}")
         print("─" * 56)
-        print(f"  Events sent          {sent:>10,}")
-        if failed:
-            print(f"  Events failed        {failed:>10,}")
-        if elapsed > 0:
-            print(f"  Throughput           {sent / elapsed:>10,.1f} events/s")
-        if dropped:
-            print(f"  Arrivals dropped     {dropped:>10,}  (raise --sessions)")
+        print(f"  Orders placed        {g('orders_placed'):>10,}   ({pct(g('orders_placed'))} of sessions)")
+        for method in ("credit_card", "pix", "boleto"):
+            print(f"    {method:<18} {g('orders_' + method):>10,}")
+        print(f"  Orders failed        {g('orders_failed'):>10,}")
+        print(f"  Sold out             {g('out_of_stock'):>10,}")
+        declined = sum(g(k) for k in ("declined_credit_card", "declined_pix", "declined_boleto"))
+        if declined:
+            print(f"  Payments declined    {declined:>10,}")
+        if g("arrivals_dropped"):
+            print(f"  Arrivals dropped     {g('arrivals_dropped'):>10,}  (raise --sessions)")
         print("─" * 56)
 
 
@@ -147,33 +142,32 @@ async def _heartbeat(
     interval: float = 30.0,
 ) -> None:
     """Print a live progress line every `interval` seconds until cancelled."""
-    last_sent, last_t = 0, time.monotonic()
     while True:
         await asyncio.sleep(interval)
-        now     = time.monotonic()
-        elapsed = now - start
-        sent    = stats.get("events_sent")
-        rate    = (sent - last_sent) / max(1e-9, now - last_t)
-        last_sent, last_t = sent, now
-
+        elapsed = time.monotonic() - start
         mult = config.hour_multiplier() if args.diurnal else 1.0
         print(
-            f"[sim] t+{elapsed:>6.0f}s  active={len(tasks):<6} "
-            f"x{mult:.2f} ({args.arrivals_per_minute * mult:>7,.0f}/min)  "
-            f"started={stats.get('sessions_started'):<9,} "
-            f"views={stats.get('page_views'):<9,} "
-            f"purch={stats.get('purchases'):<7,} "
-            f"{rate:>7,.0f} ev/s",
+            f"[sim] t+{elapsed:>6.0f}s  active={len(tasks):<4} "
+            f"x{mult:.2f} ({args.arrivals_per_minute * mult:>6,.1f}/min)  "
+            f"sessions={stats.get('sessions_started'):<6,} "
+            f"views={stats.get('page_views'):<7,} "
+            f"searches={stats.get('searches'):<5,} "
+            f"carts={stats.get('cart_adds'):<5,} "
+            f"orders={stats.get('orders_placed'):<5,} "
+            f"failed={stats.get('orders_failed'):<4,} "
+            f"soldout={stats.get('out_of_stock'):<4,}",
             flush=True,
         )
 
 
 # ── Session runner ────────────────────────────────────────────────────────────
 
-async def _run_browser(args: argparse.Namespace, stats: Stats) -> None:
+async def _run_browser(
+    args: argparse.Namespace, stats: Stats, shoppers: tuple[identity.Shopper, ...]
+) -> None:
     from session_browser import BrowserSession
 
-    session = BrowserSession(args.url, stats)
+    session = BrowserSession(args.url, stats, shoppers)
     try:
         await session.run()
     except asyncio.CancelledError:
@@ -186,9 +180,10 @@ async def _spawn(
     args: argparse.Namespace,
     semaphore: asyncio.Semaphore,
     stats: Stats,
+    shoppers: tuple[identity.Shopper, ...],
 ) -> None:
     async with semaphore:
-        await _run_browser(args, stats)
+        await _run_browser(args, stats, shoppers)
 
 
 # ── Capacity estimate ─────────────────────────────────────────────────────────
@@ -199,25 +194,23 @@ def _report_capacity(args: argparse.Namespace) -> None:
     --sessions is short. Little's law: in-flight = arrival rate × service time.
     """
     durations = [config.plan_session().duration_s for _ in range(2_000)]
-    avg = statistics.mean(durations)
+    avg = statistics.mean(durations) + NAVIGATION_OVERHEAD_S
     peak_mult = config.PEAK_MULTIPLIER if args.diurnal else 1.0
     needed = (args.arrivals_per_minute / 60.0) * avg * peak_mult
 
     print(
-        f"[sim] Mean session duration {avg:.1f}s (dwell scale {args.dwell_scale:g}) → "
-        f"peak concurrency ≈ {needed:,.0f} sessions"
-        + ("  — sessions finish instantly, so the frontend, not concurrency, is the limit"
-           if needed < 1 else ""),
+        f"[sim] Mean session ≈ {avg:.0f}s (dwell scale {args.dwell_scale:g}, plus page loads) → "
+        f"peak concurrency ≈ {needed:,.1f} browsers",
         flush=True,
     )
     if needed > args.sessions:
         print(
-            f"[sim] WARNING: --sessions {args.sessions:,} is below the ≈{needed:,.0f} needed at "
-            f"{args.arrivals_per_minute:,.0f} arrivals/min"
+            f"[sim] WARNING: --sessions {args.sessions:,} is below the ≈{needed:,.1f} needed at "
+            f"{args.arrivals_per_minute:,.1f} arrivals/min"
             f"{f' × {peak_mult:.2f} peak' if args.diurnal else ''}.\n"
             f"[sim]          Arrivals will queue and eventually be dropped. Either raise "
             f"--sessions to ~{needed * 1.2:,.0f}, lower --arrivals-per-minute to "
-            f"{args.sessions / max(avg * peak_mult, 1e-9) * 60:,.0f}, or shorten sessions with "
+            f"{args.sessions / max(avg * peak_mult, 1e-9) * 60:,.1f}, or shorten sessions with "
             f"--dwell-scale.",
             flush=True,
         )
@@ -227,6 +220,7 @@ def _report_capacity(args: argparse.Namespace) -> None:
 
 async def run_simulation(args: argparse.Namespace) -> None:
     _setup_telemetry(args.url)
+    shoppers = identity.build_shoppers()
 
     stats     = Stats()
     semaphore = asyncio.Semaphore(args.sessions)
@@ -242,10 +236,11 @@ async def run_simulation(args: argparse.Namespace) -> None:
     max_backlog = max(args.sessions * args.max_backlog, args.sessions + 1)
 
     print(
-        f"\n[sim] Starting  url={args.url}  sessions={args.sessions:,}  "
+        f"\n[sim] Starting  url={args.url}  browsers={args.sessions:,}  "
         f"duration={args.duration or 'unlimited'}  "
         f"rate={args.arrivals_per_minute:,.1f}/min"
-        f"{' (diurnal)' if args.diurnal else ' (flat)'}\n",
+        f"{' (diurnal)' if args.diurnal else ' (flat)'}  "
+        f"funnel={'workshop' if args.workshop_funnel else 'realistic'}\n",
         flush=True,
     )
     _report_capacity(args)
@@ -271,7 +266,7 @@ async def run_simulation(args: argparse.Namespace) -> None:
     try:
         while not stopping.is_set() and (deadline is None or time.monotonic() < deadline):
             if len(tasks) < max_backlog:
-                task = asyncio.create_task(_spawn(args, semaphore, stats))
+                task = asyncio.create_task(_spawn(args, semaphore, stats, shoppers))
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
             else:
@@ -324,8 +319,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--sessions",
         type=int,
-        default=5,
-        help="Maximum number of concurrent sessions (default: 5)",
+        default=4,
+        help="Maximum number of concurrent browsers (default: 4)",
     )
     p.add_argument(
         "--duration",
@@ -337,27 +332,27 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--arrivals-per-minute",
         type=float,
-        default=10.0,
+        default=6.0,
         dest="arrivals_per_minute",
         help="Mean new-session arrival rate (Poisson). With --diurnal this is the "
-             "daily average, not the instantaneous rate (default: 10)",
+             "daily average, not the instantaneous rate (default: 6)",
     )
     p.add_argument(
         "--diurnal",
         action=argparse.BooleanOptionalAction,
-        default=True,
+        default=False,
         help="Scale the arrival rate by the hour-of-day curve "
-             "(0.10× at 04:00 to 2.94× at 20:00 UTC-03). Use --no-diurnal for a "
-             "flat rate (default: enabled)",
+             "(0.10× at 04:00 to 2.94× at 20:00 UTC-03); at the peak it needs "
+             "~3× the browsers (default: off, a flat rate)",
     )
     p.add_argument(
         "--dwell-scale",
         type=float,
-        default=1.0,
+        default=0.1,
         dest="dwell_scale",
-        help="Multiplier on every dwell time. 1.0 = realistic (~186 s sessions); "
-             "0.05 = ~20× more sessions per concurrency slot; 0 = no dwell "
-             "(default: 1.0)",
+        help="Multiplier on every dwell time. 1.0 = realistic (~200 s sessions); "
+             "0.1 = ~35 s with page loads, so a few browsers carry a few arrivals "
+             "a minute (default: 0.1)",
     )
     p.add_argument(
         "--max-backlog",
@@ -396,8 +391,9 @@ def main() -> None:
     if args.seed is not None:
         random.seed(args.seed)
 
-    # Must happen before any session is planned: plan_session() bakes the dwell
-    # times into the plan at creation time.
+    # Both must happen before any session is planned: plan_session() reads the
+    # funnel rates and bakes the dwell times into the plan at creation time.
+    args.workshop_funnel = config.apply_workshop_funnel()
     config.set_dwell_scale(args.dwell_scale)
 
     try:

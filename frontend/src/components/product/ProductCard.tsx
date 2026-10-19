@@ -91,6 +91,7 @@ export function ProductCard({ product, position, morph = false }: Props) {
           <Link
             href={`/product/${product.id}`}
             onClick={handleClick}
+            data-testid="product-card-link"
             data-morph="title"
             className="stretched-link line-clamp-2 rounded transition-colors group-hover:text-ink-900"
           >
