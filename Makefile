@@ -28,7 +28,7 @@ TOOLS_TTY := docker run --rm -it --env-file .env -v "$(CURDIR)":/workspace:ro $(
 .DEFAULT_GOAL := help
 .PHONY: help check-env tools-image doctor prefetch cluster images secrets apply-env app otel-k8s \
         pg-setup pg-reset psql ch-bootstrap ch-search ch-mvs ch-client \
-        generators-start generators-stop backfill sim-start sim-stop \
+        generators-start generators-stop backfill sim-start sim-stop traffic-stop \
         break-card-gateway fix-card-gateway status logs down nuke-data \
         test images-webp dev-frontend
 
@@ -151,6 +151,11 @@ sim-stop: ## Stop the simulated shoppers
 	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
 	  --set simulator.enabled=false --wait >/dev/null
 	@echo "simulator stopped"
+
+traffic-stop: ## Stop all the load at once: the live generators and the simulated shoppers
+	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
+	  --set producers.enabled=false --set simulator.enabled=false --wait >/dev/null
+	@echo "generators and simulator stopped"
 
 # ── Fault exercise (module 08) ───────────────────────────────────────────────
 break-card-gateway: ## Make the card gateway fail (502 after 1.5 s)

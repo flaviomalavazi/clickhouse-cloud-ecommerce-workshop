@@ -26,6 +26,15 @@ const nextConfig = {
       // webpack cannot bundle — they are loaded at runtime from node_modules.
       const existingExternals = Array.isArray(config.externals) ? config.externals : [];
       config.externals = [
+        // `pg` must be required by NAME. Next resolves a package listed in
+        // serverComponentsExternalPackages to its absolute file path, and the OpenTelemetry
+        // hook matches modules by name: with the path it patched pg-pool (which pg requires
+        // by name, so `pg-pool.connect` spans appeared) but never pg itself, so there were
+        // no `pg.query` spans. This rule comes first so Next's own handling cannot claim it.
+        ({ request }, callback) => {
+          if (request === 'pg') return callback(null, 'commonjs pg');
+          callback();
+        },
         ...existingExternals,
         ({ request }, callback) => {
           if (request && (request.startsWith('@opentelemetry/') || request.startsWith('@grpc/'))) {

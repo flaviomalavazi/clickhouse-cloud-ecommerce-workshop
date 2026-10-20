@@ -17,11 +17,12 @@ check() {
   if "$@" >/dev/null 2>&1; then pass "$what"; else fail "$what"; fi
 }
 
-# All the pods in a namespace are Ready (and there is at least one).
+# All the pods in a namespace are Ready (and there is at least one). A pod that is being deleted
+# (STATUS Terminating, as right after `make traffic-stop`) is on its way out and does not count.
 pods_ready() {
   local ns=$1
   local not_ready
-  not_ready=$("$KUBECTL" -n "$ns" get pods --no-headers 2>/dev/null | awk '{split($2, r, "/"); if ($3 != "Completed" && (r[1] != r[2] || $3 != "Running")) print $1}')
+  not_ready=$("$KUBECTL" -n "$ns" get pods --no-headers 2>/dev/null | awk '{split($2, r, "/"); if ($3 != "Completed" && $3 != "Terminating" && (r[1] != r[2] || $3 != "Running")) print $1}')
   [ -z "$not_ready" ] && [ -n "$("$KUBECTL" -n "$ns" get pods --no-headers 2>/dev/null)" ]
 }
 
@@ -34,4 +35,18 @@ finish() {
   echo
   if [ "$failures" -gt 0 ]; then echo "$failures check(s) failed"; exit 1; fi
   echo "All checks passed"
+}
+
+# Run the database side of a module's check (tools/module_checks.py) in the tools container.
+# The repo is mounted read-only; .env goes in as the environment, exactly as for make pg-setup.
+run_db_check() {
+  local module=$1
+  [ -f "$REPO/.env" ] || { fail ".env not found: run  cp .env.example .env  and fill it in (module 01)"; return; }
+  docker image inspect clickshop-tools >/dev/null 2>&1 || docker build -q -t clickshop-tools "$REPO/tools" >/dev/null
+  if ! docker run --rm --env-file "$REPO/.env" -v "$REPO":/workspace:ro clickshop-tools python /app/tools/module_checks.py "$module" > /tmp/clickshop-check-$$.out 2>&1; then
+    failures=$((failures + 1))
+  fi
+  # Its own ✓ / ✗ lines, without its closing summary (finish prints ours).
+  grep -vE '^(All checks passed|[0-9]+ check\(s\) failed)$|^$' /tmp/clickshop-check-$$.out
+  rm -f /tmp/clickshop-check-$$.out
 }
