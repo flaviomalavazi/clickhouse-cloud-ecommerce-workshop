@@ -27,7 +27,7 @@ TOOLS_TTY := docker run --rm -it --env-file .env -v "$(CURDIR)":/workspace:ro $(
 
 .DEFAULT_GOAL := help
 .PHONY: help check-env tools-image doctor prefetch cluster images secrets apply-env app otel-k8s setup notebook \
-        pg-setup pg-migrate pg-seed pg-reset psql clickpipes clickpipes-status clickpipes-wait clickpipes-delete clickstack-setup clickstack-list ch-bootstrap ch-search ch-mvs ch-client \
+        pg-setup pg-migrate pg-seed pg-reset psql ch-query pg-query clickpipes clickpipes-status clickpipes-wait clickpipes-delete clickstack-setup clickstack-list ch-bootstrap ch-search ch-mvs ch-client \
         generators-start generators-stop backfill backfill-run sim-start sim-stop traffic-stop \
         break-card-gateway fix-card-gateway status logs down nuke-data \
         test images-webp dev-frontend
@@ -73,6 +73,19 @@ ch-mvs: check-env tools-image ## Create the real-time rollups and backfill them
 ch-client: check-env ## Open clickhouse-client on the service (uses the official image)
 	@docker run --rm -it --env-file .env --entrypoint sh $(CLICKHOUSE_IMAGE) -c \
 	  'exec clickhouse-client --host "$$CLICKHOUSE_HOST" --port $(CLICKHOUSE_NATIVE_TLS_PORT) --secure --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD"'
+
+# SQL without a prompt, for a coding agent or a script (psql and ch-client need a terminal):
+#   make ch-query Q='SELECT 1'      make ch-query FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2
+# The statement goes in single quotes (an embedded ' is escaped); write $$ for a literal $.
+QUERY_ARGS = $(if $(Q),--sql '$(subst ','\'',$(Q))') $(if $(FILE),--file '$(FILE)' $(if $(N),--only $(N)))
+QUERY_USAGE = usage: make $@ Q='SELECT 1'   or   make $@ FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2
+ch-query: check-env tools-image ## Run SQL on ClickHouse without a prompt: Q='SELECT 1' or FILE=<example.sql> N=<query number>
+	@test -n "$(Q)$(FILE)" || { echo "$(QUERY_USAGE)"; exit 2; }
+	@$(TOOLS_RUN) python /app/tools/query.py clickhouse $(QUERY_ARGS)
+
+pg-query: check-env tools-image ## Run SQL on Postgres without a prompt: Q='SELECT 1'
+	@test -n "$(Q)$(FILE)" || { echo "$(QUERY_USAGE)"; exit 2; }
+	@$(TOOLS_RUN) python /app/tools/query.py postgres $(QUERY_ARGS)
 
 test: tools-image ## Run the Python unit tests (tools, Snowplow bridge, generators)
 	@docker run --rm -v "$(CURDIR)":/workspace:ro $(TOOLS_IMAGE) python -m pytest /app/tools -q

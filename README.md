@@ -58,6 +58,12 @@ The story the workshop tells:
 
 You can also mix them: `make setup` is safe to run at any point, it skips what is done, and every piece has its own command (`make clickpipes`, `make ch-search`, `make ch-mvs`, `make clickstack-setup`, ...).
 
+## Human mode and agent mode
+
+You can read the modules yourself (**human mode**: this README and `workshop/`), or have a coding agent guide you (**agent mode**): Claude Code, Codex, Cursor, Copilot or another that reads `AGENTS.md`. Open the repository in your agent and say *"start the workshop"* (in Claude Code, `/workshop`). It reads [`AGENTS.md`](AGENTS.md) and the playbooks in [`agent-mode/`](agent-mode/README.md), asks whether you want the one-hour or the step-by-step way, runs the commands, explains each one, and stops where only you can act: the Cloud console and the browser. You do not write code, and you never paste a secret into the chat: you edit `.env` yourself.
+
+The two modes are separate texts that share the same commands (the `make` targets and `make check-NN`), so both end in the same place.
+
 ## The modules
 
 Times are for a first run by hand, including the waiting.
@@ -98,6 +104,7 @@ Run `make help` for the full list. The ones you will use:
 | `make ch-bootstrap`, `make pg-setup`, `make ch-search`, `make ch-mvs` | create the databases and tables, set up Postgres (`pg-migrate` then `pg-seed`), build search, create the rollups |
 | `make clickpipes`, `make clickpipes-status`, `make clickstack-setup`, `make notebook` | the ClickPipe and the ClickStack sources through the Cloud API; the notebook that shows the ClickPipe request |
 | `make psql`, `make ch-client` | a SQL prompt on Postgres, on ClickHouse |
+| `make ch-query Q='SELECT 1'`, `make pg-query Q='SELECT 1'` | run SQL without a prompt (what an agent uses); `FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2` runs one numbered example query |
 | `make cluster images secrets app` | start the local cluster and the application (module 05) |
 | `make backfill`, `make generators-start`, `make sim-start USERS=4` | fill ClickHouse; start the live generators; start the browser shoppers |
 | `make generators-stop`, `make sim-stop`, `make traffic-stop` | stop the generators, the shoppers, or both |
@@ -115,7 +122,8 @@ Everything is configured in **`.env`** at the root of the repo. You create it fr
 ## Where things are
 
 ```text
-workshop/                 the modules (this is what you follow)
+workshop/                 the modules (human mode: this is what you follow)
+AGENTS.md, agent-mode/    agent mode: the rulebook and one playbook per module
 Makefile                  every command
 .env.example              the one configuration template
 sql/                      Postgres schema, ClickHouse tables, and example queries for the modules

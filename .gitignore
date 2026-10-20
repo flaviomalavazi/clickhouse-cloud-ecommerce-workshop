@@ -58,3 +58,7 @@ base_contents/
 # ── Workshop agent mode ───────────────────────────────────────────────────────
 # Per-participant progress file written by the guide agent (AGENTS.md).
 .workshop/
+
+# ── Claude Code ───────────────────────────────────────────────────────────────
+# Per-machine permissions and tokens; the shared /workshop command in .claude/commands/ is committed.
+.claude/settings.local.json
