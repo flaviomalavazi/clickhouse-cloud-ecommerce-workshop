@@ -19,7 +19,7 @@ WHERE oi.order_id IN
 ORDER BY oi.order_id, line_total DESC;
 
 -- 3. Stock in Postgres' replica vs. what search shows. The two differ until the
---    refreshable view runs (up to a minute), unless you force it:
+--    refreshable view runs (up to five minutes), unless you force it:
 --      SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
 SELECT
     s.product_id,

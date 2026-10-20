@@ -3,10 +3,10 @@
 -- retail_oltp.products, categories and stock. Idempotent.
 --
 -- products_search is a plain MergeTree that a refreshable materialized view
--- rebuilds from the replicated Postgres tables once a minute. Postgres stays
+-- rebuilds from the replicated Postgres tables every 5 minutes. Postgres stays
 -- the single source of truth for the catalogue, and stock levels show up in
--- search. Freshness budget: ClickPipe sync interval + up to 60 s. To skip the
--- wait: SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
+-- search. Freshness budget: ClickPipe sync interval + up to 5 minutes. To skip
+-- the wait: SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
 --
 -- Because it is not a ReplacingMergeTree, FINAL on this table is an error.
 --
@@ -50,14 +50,14 @@ CREATE TABLE IF NOT EXISTS retail_analytics.products_search
 ENGINE = MergeTree
 ORDER BY (category_slug, product_id);
 
--- Rebuilds products_search from the CDC tables every minute. Each refresh
+-- Rebuilds products_search from the CDC tables every 5 minutes. Each refresh
 -- replaces the whole table atomically, so readers never see a half-built one.
 --
 -- The CDC tables are ReplacingMergeTree: FINAL collapses each row to its latest
 -- version, and `_peerdb_is_deleted` hides rows deleted in Postgres. The casts
 -- make the output types independent of how the ClickPipe maps Postgres types.
 CREATE MATERIALIZED VIEW IF NOT EXISTS retail_analytics.products_search_refresh
-REFRESH EVERY 1 MINUTE
+REFRESH EVERY 5 MINUTE
 TO retail_analytics.products_search
 AS
 SELECT
@@ -87,3 +87,7 @@ LEFT JOIN
 ) AS s ON s.product_id = p.id
 WHERE p._peerdb_is_deleted = 0
   AND c._peerdb_is_deleted = 0;
+
+-- CREATE ... IF NOT EXISTS leaves a view that was created with another schedule as it
+-- was (an earlier version of this file refreshed every minute), so say the schedule once more.
+ALTER TABLE retail_analytics.products_search_refresh MODIFY REFRESH EVERY 5 MINUTE;
