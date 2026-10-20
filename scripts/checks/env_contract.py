@@ -104,6 +104,9 @@ PY_READ = [
     r'os\.environ\.setdefault\(\s*["\']([A-Z][A-Z0-9_]*)["\']',
     r'os\.getenv\(\s*["\']([A-Z][A-Z0-9_]*)["\']',
     r'\benv_(?:int|float|bool|str)\(\s*["\']([A-Z][A-Z0-9_]*)["\']',
+    # code that takes the environment as a parameter (tools/cloud_api.py, tools/clickpipes.py)
+    r'\benv\.get\(\s*["\']([A-Z][A-Z0-9_]*)["\']',
+    r'\benv\[\s*["\']([A-Z][A-Z0-9_]*)["\']',
 ]
 TS_READ = [r'process\.env\.([A-Z][A-Z0-9_]*)', r'process\.env\[\s*["\']([A-Z][A-Z0-9_]*)["\']']
 SH_READ = [r'\$\{([A-Z][A-Z0-9_]*)(?::[-?+=]|\})', r'\$([A-Z][A-Z0-9_]*)\b']

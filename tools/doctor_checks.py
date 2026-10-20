@@ -65,8 +65,31 @@ def check_postgres() -> bool:
     return True
 
 
+def check_cloud_api() -> bool:
+    """The Cloud API key is optional: without it the ClickPipe and the ClickStack sources are made by hand."""
+    import os
+    from cloud_api import CloudAPI, CloudAPIError, context_from_env
+    if not os.environ.get("CLICKHOUSE_CLOUD_API_KEY_ID", "").strip():
+        print("  · no Cloud API key in .env: `make setup`, `make clickpipes` and `make clickstack-setup` need one "
+              "(the manual steps in the modules do not)")
+        return True
+    try:
+        _, ctx = context_from_env(CloudAPI.from_env())
+    except CloudAPIError as exc:
+        print(f"  ✗ Cloud API: {str(exc)[:160]}")
+        return False
+    except SystemExit as exc:
+        print(f"  ✗ Cloud API: {str(exc).replace('ERROR: ', '')[:200]}")
+        return False
+    except Exception as exc:
+        print(f"  ✗ Cloud API: could not connect ({str(exc).splitlines()[0][:120]})")
+        return False
+    print(f"  ✓ Cloud API key accepted; service {ctx.service_name} found")
+    return True
+
+
 def main() -> int:
-    results = [check_clickhouse(), check_postgres()]
+    results = [check_clickhouse(), check_postgres(), check_cloud_api()]
     return 0 if all(results) else 1
 
 
