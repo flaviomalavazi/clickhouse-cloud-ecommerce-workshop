@@ -693,3 +693,69 @@ or confirm the ClickStack sources (module 08 depends on them).
 - **The Docker legacy builder** printed a deprecation notice because buildx was no longer installed; the
   images built either way. Docker Desktop ships buildx, so participants will not see it.
 
+## Phase 7: human-mode modules
+
+### What was written
+
+- `workshop/00-prerequisites` to `workshop/10-cleanup`: the same skeleton in each (goal, time, what you will
+  learn, before you start, steps, checkpoint, troubleshooting, going further). Module 09 is a marked
+  placeholder: it comes with the agent prompts in Phase 9.
+- The root `README.md` (overview, architecture, module index with times, commands, layout) and a rewrite of
+  `data-generators/README.md` for ClickHouse-only, browser-only operation: no Kafka, no backend mode, no
+  fraud generator, no `run.sh`, no `PURCHASE_PIX_SHARE`. It is written from the code, not from the old text:
+  the funnels (realistic for the producers, the workshop's for the simulator), the payment mix (card 50,
+  Pix 30, Boleto 20), what `se_property` holds (a UUID for a generated purchase, the Postgres order id for
+  a real one), the sink, every variable with its default, and how to run a generator without the cluster.
+- `make check-NN` for modules 00 to 04, 06, 07, 08 and 10 (05 existed). The database side is
+  `tools/module_checks.py`, run in the tools container through `scripts/checks/lib.sh`; the shell side
+  covers Docker, images and the cluster. Each failing line says what to do.
+- All 29 statements in `sql/clickhouse/examples/` were run against the live service: none errors.
+
+### Where the console steps come from
+
+I cannot click through the Cloud console, so the steps in modules 01, 03 and 08 use ClickHouse's own
+documentation, and the labels below are the documented ones:
+
+- **Managed Postgres:** the instance's **Connect** view (**Username**, **Password**, **Server**, **Port**, the
+  **via PgBouncer** toggle, direct is the default and ClickPipes is not supported through the pooler) and the
+  **Settings** tab for the CA certificate.
+- **ClickPipe:** the instance's **Sync to ClickHouse**, then **Replicate data in ClickHouse**, with
+  **Integration name**, **ClickHouse service**, **Postgres database**, **Replication method** ("Initial load +
+  CDC"), **Sync interval (seconds)** (default 60), **Destination database**, **Prefix default destination table
+  names with schema name**, **Preserve NULL values from source** and **Remove deleted rows during merges**,
+  then **Replicate data to ClickHouse**.
+- **ClickStack:** the source form's fields (**Name**, **Source Data Type**, **Server Connection**,
+  **Database**, **Table**, **Timestamp Column**, ...), **Dashboards, Kubernetes** (Pods, Nodes, Namespaces),
+  and, from the owner's own screenshot, the log row's tabs (**Overview**, **Column Values**, **Service Map**,
+  **Surrounding Context**, **Infrastructure**).
+
+**Not documented, written from what is likely, and flagged in the PR for the owner to confirm:** the ClickHouse
+service creation and **Connect** labels; the Postgres instance's IP-access setting (module 01 describes the
+setting without naming a label); that the console accepts a 10 s sync interval (the plan suggests 10, the
+default is 60); how ClickStack is launched from the service and where its source settings live (the docs do
+not cover a custom database); the name of the sessions view ("client sessions"); and that a pipe's table list
+can be changed after creation.
+
+### Findings while writing
+
+- **Module 03 uses an order made by hand**, not a storefront order: the storefront settles an order in about
+  2 s, so ClickHouse never has a `pending` version (Phase 6). The module walks one order through insert,
+  update and delete in `make psql`, and shows the rows with and without `FINAL`.
+- **`hasToken` is the wrong function for a search term.** `_` and `-` are separators, and `hasToken` raises
+  `Needle must not contain whitespace or separator characters`; `hasAllTokens` splits the term itself (`USB-C`
+  and `usb c` both find 38 products). `FINAL` on `products_search` raises `Storage SharedMergeTree doesn't
+  support FINAL`. Both are in the module 04 troubleshooting.
+- **ClickStack's log search is the same index as module 04.** `retail_otel.otel_logs` has
+  `INDEX idx_lower_body lower(Body) TYPE text(tokenizer = 'splitByNonAlpha')`, and module 08 uses that to tie
+  the two together.
+- **Span names for module 08:** `checkout.place_order` (attributes `clickshop.order_id`,
+  `clickshop.payment_method`, `clickshop.order_status`, `clickshop.item_count`), `search.products`,
+  `pg.query:SELECT|INSERT|UPDATE|BEGIN|COMMIT clickshop`, `clickhouse.query`.
+- **The checks are state checks, so some fail by design:** `check-06` needs events from the last five
+  minutes (it fails once the generators are stopped), `check-07` needs ten minutes of shoppers, and
+  `check-10` fails while the cluster is up.
+- **Times.** The command times in the modules are measured (Phase 6); the module totals add an estimate of
+  reading and console time. Module 01's time is mostly waiting for the services to start and was not measured.
+- **Agent mode** is not mentioned in the root README yet: the plan puts a pointer to `AGENTS.md` there, and
+  Phase 8 creates the file.
+
