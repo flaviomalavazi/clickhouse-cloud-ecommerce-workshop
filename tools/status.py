@@ -4,8 +4,8 @@ Row counts and freshness for the tables the workshop fills, in Postgres and Clic
 
     status.py
 
-"Newest" is the timestamp of the latest row and "age" is how long ago that was, so a
-table that has stopped growing shows an age that keeps climbing. This is what
+"Newest" is the timestamp of the latest row that is not dated in the future and "age" is how
+long ago that was, so a table that has stopped growing shows an age that keeps climbing. This is what
 `make status` prints below the pod list.
 """
 
@@ -67,7 +67,10 @@ def clickhouse_section() -> None:
     for table, ts, where in CLICKHOUSE_TABLES:
         label = table.replace(" FINAL", "")
         clause = f"WHERE {where}" if where else ""
-        select = "count()" if ts is None else f"count(), max({ts}), dateDiff('second', max({ts}), now())"
+        # The card data carries anomalies dated hours ahead on purpose, so freshness ignores rows
+        # in the future.
+        newest = f"maxIf({ts}, {ts} <= now())"
+        select = "count()" if ts is None else f"count(), {newest}, dateDiff('second', {newest}, now())"
         try:
             row = client.query(f"SELECT {select} FROM {table} {clause}").result_rows[0]
         except Exception as exc:  # a table that does not exist yet is not an error here

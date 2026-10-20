@@ -583,3 +583,113 @@ then asked for the `retail_oltp` mirror to be emptied as well, since the pipe re
   images only for active products, no unknown image files, the hero ids exist, and every category keeps at
   least 36 active products. Putting one deactivated product's image back makes it fail.
 
+### Acceptance run
+
+Run on the owner's current ClickHouse Cloud 26.6.1 service and Managed Postgres 18.6 (not fresh ones, at
+the owner's request), against a cluster built from scratch on OrbStack (arm64, 14 CPUs, 11.7 GiB). The
+parts of the plan that need ClickStack's UI are the owner's and are listed under "Not checked".
+
+1. **Prune.** The Phase 1 grep matches only intentional text: CSS and shader code ("clip", `vec2`),
+   product wording in the catalogue, `docs/decisions.md`, one comment in `LatentField.tsx`, and the two
+   READMEs that still describe the old demo (the plan rewrites them in Phase 7).
+2. **OLTP.** `make pg-setup`: 978 products (691 active), 5 categories, 500 customers, 2,000 orders (5,989
+   items), 978 stock rows.
+3. **CDC.** All 6 tables replicate into `retail_oltp`. A change takes **30 to 32 s** to arrive (the same
+   for an insert, an update and a delete). A manual SQL order shows `pending`, then `confirmed` as a second
+   version: two rows without `FINAL`, one with it; a delete arrives as a row with `_peerdb_is_deleted = 1`
+   and an empty status. **A storefront order cannot show `pending` first**: it is settled about 2 s later,
+   the pipe delivers both changes in one batch, and ClickHouse only ever has the `confirmed` row. Module 03
+   should show the two versions with a hand-made order in `make psql`, not with the storefront.
+   The plan's budget is "sync interval + 15 s"; 30 s fits if the pipe's sync interval is 30 s, not the 10 s
+   the plan suggests (the interval is a console setting that I cannot read).
+4. **Search.** `running shoes` (5 results), `usb-c` (38), `livro` in pt (47) and `zapatillas` in es (44)
+   answer without errors; a nonsense term answers 0. `EXPLAIN indexes = 1` shows the text index
+   (`idx_search_en`, mode All, tokens `running` and `shoes`). `system.view_refreshes` shows
+   `products_search_refresh` succeeding every 60.0 s in about 230 ms. An order's stock reached ClickHouse in
+   35 s and `products_search` after `SYSTEM REFRESH VIEW` (0.6 s). `search.products` spans carry
+   `search.query`, `.locale`, `.category`, `.page`, `.index`, `.match_mode`, `.partial`, `.results`, `.total`,
+   `.read_rows` and `.elapsed_ms`, with nested `clickhouse.query` spans (26 in the check), and a zero-result
+   search is found by `search.results = 0` (the attribute is stored as the string `'0'`).
+5. **Analytics.** `make ch-mvs` 3.9 s, then the backfill: **5,001,505 events in 1 min 34 s** as 100,000-row
+   inserts (50 per worker pair and two remainders). The rollups equal the raw events exactly (5,029,278 and
+   2,541,597 page views, both sides). Live generators: **0.17 to 0.20 inserts a second per table**, never
+   more than one in any second (the card table has two writers, so about 0.4 in total). All 15 dashboard
+   charts answer for 24 h and 7 d, and the Pipeline tile reads the gateway's metrics (about 5 spans and 128
+   metric points a second, none refused or failed).
+6. **Simulator.** 10 minutes, 4 browsers: **12 orders (card 5, pix 5, boleto 2), none failed**, 12 distinct
+   customers, 14 units sold. The join `retail_oltp.orders` x `snowplow_events` on `toString(o.id) =
+   e.se_property` returns all 12, each with a visitor id and a real device's user agent.
+7. **ClickStack data.** The caller-to-callee edges show 15 services and every edge of the checkout path
+   (frontend, storefront-bff, catalog and checkout, pricing and inventory, the three payment services,
+   their gateways, order-svc, ledger and email) and no fraud, search or embedding service. Frontend traces
+   carry `pg.connect`, `pg.query:SELECT clickshop` and `clickhouse.query` spans (see the bug below).
+   Session replays: 9,485 rows over the first 20 sessions. After `make break-card-gateway` (5 s), the
+   error text is in the logs of four services within a minute (`hasAllTokens(Body, 'card gateway
+   unavailable')` finds it) with error spans on each; `make fix-card-gateway` 4 s. Zero duplicated log lines;
+   0 stdout copies of demo-service and frontend logs. Infrastructure data: 3 nodes, 45 pods, the frontend
+   pod's CPU, memory and filesystem metrics, and 136 Kubernetes events.
+8. **Hygiene.** None of the owner's real secret values or hosts appears anywhere in git history; the
+   committed values are placeholders. `assets/product_images/` has 0 tracked files.
+9. **One `.env`.** `.env.example` is the only env file tracked. `make check-env-contract` (new) lists every
+   variable the code reads that is in none of `.env.example`, the chart and images, or a commented list: 84
+   read, none unaccounted for. Without a `.env`, `make doctor` fails with "`.env` not found: run `cp
+   .env.example .env` and fill in the required block". Setting `PRODUCE_TARGET_EPS=50` and running `make
+   apply-env` (13 s) changed the producer from 200 to 50 events/s; reverted afterwards.
+
+#### Bugs the run found
+
+- **No `pg.query` spans.** Only `pg-pool.connect` appeared, so a trace showed connections but not queries.
+  Next.js resolved `pg` (it is in `serverComponentsExternalPackages`) to its absolute file path, and the
+  OpenTelemetry hook matches modules by name: it patched `pg-pool`, which `pg` requires by name, and never
+  `pg`. The same packages under plain Node produced query spans, which located the cause. A rule placed
+  before Next's in `next.config.js` makes the server `require('pg')`.
+- **`make status` showed a future "newest" time** for `credit_card_transactions`. The rows are meant to be
+  there: the card data's anomaly signal includes a "timestamp" fault dated 1 to 5 hours ahead. Freshness now
+  ignores rows dated in the future.
+
+#### Timings, for the Phase 10 dry run
+
+Cold means Docker held nothing (its images and build cache had been cleaned out): the 4:23 below includes
+every pull and every build.
+
+| Module | Command | Time |
+|---|---|---|
+| 00 Prerequisites | `make prefetch`, cold | **4 min 23 s** (the simulator image alone 65 s) |
+| 01 Cloud services | `make doctor` | 6 s (about 3 min the first time, which builds the tools image); `make ch-bootstrap` 3.3 s |
+| 02 Postgres | `make pg-setup`, first time on an empty database | 13 s; 8 s when already seeded |
+| 03 CDC ClickPipe | a change reaching `retail_oltp` | 30 to 32 s; the pipe itself is the owner's console step |
+| 04 Search | `make ch-search` | 1.8 s, plus up to 60 s for the first refresh |
+| 05 Run the app | `make cluster` 33 s, `make images` 51 s, `make secrets` 3 s, `make app` 24 s, `make check-05` 5 s | **about 2 min** with the images already built |
+| 06 Real-time analytics | `make ch-mvs` 3.9 s, `make backfill` 1 min 34 s, `make generators-start` 3 s | about 1 min 45 s |
+| 07 Simulated shoppers | `make sim-start` 16 s (it loads the 1.5 GB image), then a 10-minute run | 10 min 16 s |
+| 08 Observability | `make break-card-gateway` 5 s, `make fix-card-gateway` 4 s, up to a minute for logs to show | about 1.5 min |
+| 10 Cleanup | `make down` | 9.5 s |
+| Any time | `make nuke-data` (waits for the pipe twice) | 53 to 77 s; `make apply-env` 13 s |
+
+**Resource budget (for module 00).** With the generators and the simulator (4 browsers) running, the four
+k3d containers use **3.4 GiB** of memory (1.6, 1.2, 0.5 and 0.01 GiB) and under 1 CPU. Docker needs 8 GB
+and about 10 GB of free disk (`make doctor` checks both).
+
+#### Not checked here (the owner's, in the ClickStack console)
+
+The data for each is confirmed above; the UI is not. Open Dashboards, Kubernetes (the Pods, Nodes and
+Namespaces tabs); a frontend pod's Infrastructure tab from a trace; the service map; a session replay of a
+simulated shopper; a log search for `card_gateway_unavailable` after `make break-card-gateway`; and create
+or confirm the ClickStack sources (module 08 depends on them).
+
+#### Findings about the environment
+
+- **A full disk, twice.** The Docker VM's disk (Phase 5) and then the Mac's own (100% used, 0.7 GiB free):
+  OrbStack stopped by itself and the acceptance run waited until space was freed. After that, Docker's
+  unused images and build cache were gone, which is where the cold timings come from.
+- **The Docker CLI had no configuration afterwards** (`~/.docker` empty, `/var/run/docker.sock` pointing at
+  a Docker Desktop that was not running), so the work used `DOCKER_HOST=unix://$HOME/.orbstack/run/docker.sock`
+  explicitly. Nothing outside the repo was changed.
+- **Intermittent connection timeouts to the Cloud endpoints** (Postgres and ClickHouse; a TCP connect that
+  took 7.6 s or never completed, while other hosts answered in 40 ms) happened three times, each cleared
+  within minutes. The owner's older `producer` container (not this workshop's) pushes about 2,600 events a
+  second to another ClickHouse host all the time, which is a plausible contributor to an uplink that is
+  busy; this was not proven and the container was not touched.
+- **The Docker legacy builder** printed a deprecation notice because buildx was no longer installed; the
+  images built either way. Docker Desktop ships buildx, so participants will not see it.
+
