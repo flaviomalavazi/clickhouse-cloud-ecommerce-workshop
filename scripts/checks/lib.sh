@@ -17,11 +17,12 @@ check() {
   if "$@" >/dev/null 2>&1; then pass "$what"; else fail "$what"; fi
 }
 
-# All the pods in a namespace are Ready (and there is at least one).
+# All the pods in a namespace are Ready (and there is at least one). A pod that is being deleted
+# (STATUS Terminating, as right after `make traffic-stop`) is on its way out and does not count.
 pods_ready() {
   local ns=$1
   local not_ready
-  not_ready=$("$KUBECTL" -n "$ns" get pods --no-headers 2>/dev/null | awk '{split($2, r, "/"); if ($3 != "Completed" && (r[1] != r[2] || $3 != "Running")) print $1}')
+  not_ready=$("$KUBECTL" -n "$ns" get pods --no-headers 2>/dev/null | awk '{split($2, r, "/"); if ($3 != "Completed" && $3 != "Terminating" && (r[1] != r[2] || $3 != "Running")) print $1}')
   [ -z "$not_ready" ] && [ -n "$("$KUBECTL" -n "$ns" get pods --no-headers 2>/dev/null)" ]
 }
 
