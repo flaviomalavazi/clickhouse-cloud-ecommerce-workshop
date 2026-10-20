@@ -2,9 +2,13 @@
 """
 Create and seed the workshop's Postgres database (`make pg-setup`).
 
-    seed_postgres.py            create the database, apply sql/postgres/*.sql,
-                                seed it if it is empty
-    seed_postgres.py --reset    truncate every table first, then reseed
+    seed_postgres.py                 create the database, apply sql/postgres/*.sql,
+                                     seed it if it is empty
+    seed_postgres.py --schema-only   create the database and the tables, load nothing
+    seed_postgres.py --reset         truncate every table first, then reseed
+
+`--schema-only` then `make clickpipes` then a plain run is the order of `make setup`: the
+ClickPipe is created against the empty tables, and the seed reaches ClickHouse as changes.
 
 Idempotent: if `products` already has rows the seed is skipped, so running it
 twice is safe. Everything is deterministic (SEED_RANDOM_SEED, default 42), so a
@@ -275,7 +279,7 @@ def summarise(conn) -> None:
         print(f"  order_items  {one('SELECT count(*) FROM order_items'):>6,}")
 
 
-def run(reset: bool = False) -> int:
+def run(reset: bool = False, schema_only: bool = False) -> int:
     """Create the schema and seed the database; with `reset`, truncate every table first."""
     for path, what in ((CATALOG_PATH, "catalogue"), (IMAGES_DIR, "image directory")):
         if not path.exists():
@@ -286,6 +290,9 @@ def run(reset: bool = False) -> int:
 
     with pg_connect() as conn:
         apply_schema(conn)
+        if schema_only:
+            print("schema applied; no data loaded (run make pg-seed to load it)")
+            return 0
         if reset:
             with conn.cursor() as cur:
                 cur.execute(
@@ -316,7 +323,11 @@ def run(reset: bool = False) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--reset", action="store_true", help="truncate every table, then reseed")
-    return run(reset=ap.parse_args().reset)
+    ap.add_argument("--schema-only", action="store_true", help="create the database and tables, load no data")
+    ns = ap.parse_args()
+    if ns.reset and ns.schema_only:
+        sys.exit("ERROR: --reset and --schema-only do not go together")
+    return run(reset=ns.reset, schema_only=ns.schema_only)
 
 
 if __name__ == "__main__":

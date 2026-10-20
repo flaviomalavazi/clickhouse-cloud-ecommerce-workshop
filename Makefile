@@ -26,8 +26,8 @@ TOOLS_RUN := docker run --rm --env-file .env -v "$(CURDIR)":/workspace:ro $(TOOL
 TOOLS_TTY := docker run --rm -it --env-file .env -v "$(CURDIR)":/workspace:ro $(TOOLS_IMAGE)
 
 .DEFAULT_GOAL := help
-.PHONY: help check-env tools-image doctor prefetch cluster images secrets apply-env app otel-k8s \
-        pg-setup pg-reset psql ch-bootstrap ch-search ch-mvs ch-client \
+.PHONY: help check-env tools-image doctor prefetch cluster images secrets apply-env app otel-k8s setup notebook \
+        pg-setup pg-migrate pg-seed pg-reset psql clickpipes clickpipes-status clickpipes-wait clickpipes-delete clickstack-setup clickstack-list ch-bootstrap ch-search ch-mvs ch-client \
         generators-start generators-stop backfill sim-start sim-stop traffic-stop \
         break-card-gateway fix-card-gateway status logs down nuke-data \
         test images-webp dev-frontend
@@ -43,6 +43,12 @@ tools-image: ## Build the clickshop-tools image (psql + Python database tasks)
 
 # ── Postgres (module 02) ─────────────────────────────────────────────────────
 pg-setup: check-env tools-image ## Create the database, apply the schema, seed the catalogue (idempotent)
+	@$(TOOLS_RUN) python /app/tools/seed_postgres.py
+
+pg-migrate: check-env tools-image ## Create the Postgres database and tables, load no data
+	@$(TOOLS_RUN) python /app/tools/seed_postgres.py --schema-only
+
+pg-seed: check-env tools-image ## Load the catalogue, customers, stock and orders (what pg-setup does after the tables exist)
 	@$(TOOLS_RUN) python /app/tools/seed_postgres.py
 
 pg-reset: check-env tools-image ## Truncate every Postgres table and reseed (not while the ClickPipe runs)
@@ -76,6 +82,34 @@ test: tools-image ## Run the Python unit tests (tools, Snowplow bridge, generato
 	@docker build -q -t clickshop-producers -f data-generators/producers/Dockerfile data-generators >/dev/null
 	@docker run --rm -v "$(CURDIR)/data-generators":/dg -w /dg clickshop-producers \
 	  sh -c 'pip install -q --disable-pip-version-check --root-user-action=ignore pytest && python -m pytest -q tests'
+
+# ── The whole workshop at once, or the Cloud pieces one by one ───────────────
+setup: check-env tools-image ## Set EVERYTHING up in one go (ClickPipe, search, rollups, cluster, ClickStack, load); needs a Cloud API key
+	@scripts/setup.sh
+
+clickpipes: check-env tools-image ## Create the Postgres CDC ClickPipe through the Cloud API (needs an API key in .env)
+	@$(TOOLS_RUN) python /app/tools/clickpipes.py create
+
+clickpipes-status: check-env tools-image ## The ClickPipe's state
+	@$(TOOLS_RUN) python /app/tools/clickpipes.py status
+
+clickpipes-wait: check-env tools-image ## Wait until retail_oltp holds what Postgres holds
+	@$(TOOLS_RUN) python /app/tools/clickpipes.py wait-sync
+
+clickpipes-delete: check-env tools-image ## Delete the ClickPipe (module 10 does this in the console)
+	@$(TOOLS_RUN) python /app/tools/clickpipes.py delete
+
+clickstack-setup: check-env tools-image ## Create the ClickStack sources (logs, traces, metrics, sessions) through the Cloud API
+	@$(TOOLS_RUN) python /app/tools/clickstack.py setup
+
+clickstack-list: check-env tools-image ## List the ClickStack sources
+	@$(TOOLS_RUN) python /app/tools/clickstack.py list
+
+notebook: check-env tools-image ## Open the notebook that creates the ClickPipe (JupyterLab on http://localhost:8888)
+	@docker build -q -t clickshop-notebook -f notebooks/Dockerfile notebooks >/dev/null
+	@echo "JupyterLab on http://localhost:8888 (Ctrl+C to stop); open 01_create_clickpipes.ipynb"
+	@docker run --rm -it -p 127.0.0.1:8888:8888 --env-file .env -v "$(CURDIR)":/workspace:ro \
+	  -v "$(CURDIR)/notebooks":/workspace/notebooks clickshop-notebook
 
 # ── Setup (module 05) ────────────────────────────────────────────────────────
 doctor: tools-image ## Check Docker, ports, .env and both databases
