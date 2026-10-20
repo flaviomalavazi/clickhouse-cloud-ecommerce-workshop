@@ -36,3 +36,17 @@ finish() {
   if [ "$failures" -gt 0 ]; then echo "$failures check(s) failed"; exit 1; fi
   echo "All checks passed"
 }
+
+# Run the database side of a module's check (tools/module_checks.py) in the tools container.
+# The repo is mounted read-only; .env goes in as the environment, exactly as for make pg-setup.
+run_db_check() {
+  local module=$1
+  [ -f "$REPO/.env" ] || { fail ".env not found: run  cp .env.example .env  and fill it in (module 01)"; return; }
+  docker image inspect clickshop-tools >/dev/null 2>&1 || docker build -q -t clickshop-tools "$REPO/tools" >/dev/null
+  if ! docker run --rm --env-file "$REPO/.env" -v "$REPO":/workspace:ro clickshop-tools python /app/tools/module_checks.py "$module" > /tmp/clickshop-check-$$.out 2>&1; then
+    failures=$((failures + 1))
+  fi
+  # Its own ✓ / ✗ lines, without its closing summary (finish prints ours).
+  grep -vE '^(All checks passed|[0-9]+ check\(s\) failed)$|^$' /tmp/clickshop-check-$$.out
+  rm -f /tmp/clickshop-check-$$.out
+}
