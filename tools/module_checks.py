@@ -125,7 +125,7 @@ def check_04(c: Checker) -> None:
     hits = q("SELECT count() FROM retail_analytics.products_search WHERE is_active = 1 AND hasAllTokens(search_en, 'running shoes')")[0][0]
     c.ok(hits > 0, f"'running shoes' finds {hits} products", "'running shoes' finds nothing")
     r = q("SELECT status, dateDiff('second', last_success_time, now()), exception FROM system.view_refreshes WHERE view = 'products_search_refresh'")
-    c.ok(bool(r) and not r[0][2] and r[0][1] < 150, f"the view refreshes every minute (last success {r[0][1] if r else '?'} s ago)",
+    c.ok(bool(r) and not r[0][2] and r[0][1] < 400, f"the view refreshes every 5 minutes (last success {r[0][1] if r else '?'} s ago)",
          "products_search_refresh has not refreshed lately: " + (r[0][2] if r and r[0][2] else "check system.view_refreshes"))
 
 

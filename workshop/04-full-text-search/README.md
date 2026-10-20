@@ -38,12 +38,12 @@ This applies `sql/clickhouse/10_products_search.sql`. Open the file and read it;
 - **`products_search_refresh`** is a refreshable materialized view:
 
   ```sql
-  CREATE MATERIALIZED VIEW ... REFRESH EVERY 1 MINUTE TO retail_analytics.products_search AS SELECT ... FROM retail_oltp.products FINAL ...
+  CREATE MATERIALIZED VIEW ... REFRESH EVERY 5 MINUTE TO retail_analytics.products_search AS SELECT ... FROM retail_oltp.products FINAL ...
   ```
 
-  Every minute it reruns the query over the replicated Postgres tables and replaces the contents of `products_search` atomically. Postgres stays the only source of truth for the catalogue, and stock levels show up in search without any code of ours doing the copy.
+  Every five minutes it reruns the query over the replicated Postgres tables and replaces the contents of `products_search` atomically. Postgres stays the only source of truth for the catalogue, and stock levels show up in search without any code of ours doing the copy.
 
-Force the first build instead of waiting for the minute:
+Force the first build instead of waiting up to five minutes:
 
 ```sql
 SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
@@ -89,11 +89,11 @@ SELECT view, status, last_success_time, last_success_duration_ms, next_refresh_t
 FROM system.view_refreshes WHERE database = 'retail_analytics';
 ```
 
-`last_success_time` moves forward by a minute each time, and a refresh takes a fraction of a second (about 230 ms in our run).
+`last_success_time` moves forward by five minutes each time (a refresh takes a fraction of a second, about 230 ms in our run), and `next_refresh_time` says when the next one is.
 
 ### 5. Do the arithmetic of freshness
 
-A change in Postgres reaches search after **the ClickPipe's sync interval, plus up to 60 seconds** for the next refresh. To skip the second wait, run `SYSTEM REFRESH VIEW` as above. In the next module you will place an order and watch the stock change travel this exact path.
+A change in Postgres reaches search after **the ClickPipe's sync interval (60 seconds), plus up to five minutes** for the next refresh. To skip the second wait, run `SYSTEM REFRESH VIEW` as above. In the next module you will place an order and watch the stock change travel this exact path.
 
 > `FINAL` on `products_search` is an error: it is a plain `MergeTree`, not a `ReplacingMergeTree`. The `FINAL` the view's query uses is on the *replicated* tables it reads.
 
@@ -103,7 +103,7 @@ A change in Postgres reaches search after **the ClickPipe's sync interval, plus 
 make check-04
 ```
 
-`products_search` has 978 products (691 active) and text indexes, an `EXPLAIN` shows `idx_search_en`, `running shoes` finds products, and the view refreshed within the last two minutes.
+`products_search` has 978 products (691 active) and text indexes, an `EXPLAIN` shows `idx_search_en`, `running shoes` finds products, and the view refreshed within the last six minutes.
 
 ## Troubleshooting
 

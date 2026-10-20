@@ -47,7 +47,7 @@ You land on the confirmation page with your **order number**.
 
 ### 3. Follow the order into ClickHouse
 
-The storefront wrote the order to **Postgres**: an `orders` row, its `order_items`, and one less unit in `stock`, in one transaction. Now find it in ClickHouse. It arrives after the ClickPipe's next sync, so give it the interval you set plus a few seconds. Run `sql/clickhouse/examples/05_run_the_app.sql` in the SQL console, or:
+The storefront wrote the order to **Postgres**: an `orders` row, its `order_items`, and one less unit in `stock`, in one transaction. Now find it in ClickHouse. It arrives after the ClickPipe's next sync, so give it up to a minute. Run `sql/clickhouse/examples/05_run_the_app.sql` in the SQL console, or:
 
 ```sql
 SELECT id, status, payment_method, total_amount, created_at
@@ -71,13 +71,13 @@ WHERE s._peerdb_is_deleted = 0
 ORDER BY stale DESC, s.product_id LIMIT 10;
 ```
 
-For a moment your product shows `stale = 1`: the replica has the new stock and search does not, until the refreshable view runs, at most a minute later. Skip the wait:
+For a while your product shows `stale = 1`: the replica has the new stock and search does not, until the refreshable view runs, at most five minutes later. Skip the wait:
 
 ```sql
 SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
 ```
 
-Run the query again: `stale` is 0, and reloading the product page in the storefront shows the new stock. The whole path, **Postgres, ClickPipe, `retail_oltp`, refreshable view, `products_search`, storefront**, takes the sync interval plus up to a minute.
+Run the query again: `stale` is 0, and reloading the product page in the storefront shows the new stock. The whole path, **Postgres, ClickPipe, `retail_oltp`, refreshable view, `products_search`, storefront**, takes the sync interval (a minute at most) plus up to five minutes, or only the sync interval if you refresh the view yourself.
 
 ### 5. Look around the cluster
 
@@ -123,7 +123,7 @@ Every pod is ready, the storefront answers on port 3000, the catalogue loads fro
 | `make app` times out | `make status` shows which pods are not ready, and `make logs S=<pod name>` why. A frontend that cannot reach Postgres or ClickHouse is the usual cause: `make doctor`. |
 | The storefront shows an error page | `make logs S=frontend`. |
 | Search finds nothing | `products_search` is empty: module 04, `SYSTEM REFRESH VIEW`. |
-| Your order is not in ClickHouse after a minute | The ClickPipe is behind or stopped: look at its page in the console. |
+| Your order is not in ClickHouse after two minutes | The ClickPipe is behind or stopped: look at its page in the console. |
 | You changed `.env` | `make apply-env` updates the Secret and restarts the pods that read it. |
 | Pods are evicted, or Docker is slow | Docker's disk is nearly full: `docker system df`, and keep 10 GB free. |
 

@@ -46,6 +46,8 @@ make backfill
 
 This runs a Kubernetes **Job** that writes 30 days of history: about **5 million events**, plus the card transactions of the purchases among them, in under two minutes. Watch its log: every `[flush]` line is one insert.
 
+If the history is already there (`make setup` loads it), `make backfill` says so and does nothing, because a second load would double every session. `make backfill FORCE=1` loads it anyway.
+
 ```text
 [flush] snowplow_events rows=100,000 bytes=98,142,336 wire=7,164,196 ms=2,673 server_written_rows=100000
 ```
