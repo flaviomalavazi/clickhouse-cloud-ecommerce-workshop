@@ -16,7 +16,7 @@
 
 ## Steps
 
-> **The fast way.** `make clickpipes` creates the pipe described below through the ClickHouse Cloud API, and `make setup` does it for you with everything else. `make notebook` opens a notebook, `01_create_clickpipes.ipynb`, that makes the same calls one at a time and shows the request, which is the clearest way to see what each console setting becomes. All three need the API key from [module 01](../01-cloud-services/README.md). The steps below are what to click if you would rather do it by hand, and they give the same pipe.
+> **The fast way.** `make clickpipes` creates the pipe described below through the ClickHouse Cloud API, and `make setup` does it for you with everything else. `make notebook` opens a notebook, `01_create_clickpipes.ipynb`, that makes the same calls one at a time and shows the request, which is the clearest way to see what each console setting becomes. All three need the API key from [module 01](../01-cloud-services/README.md). The steps below are what to click if you would rather do it by hand, and they give the same pipe (we compared the tables it creates with the ones the console creates: same names, engines, sorting keys and columns). The commands recognise a pipe you made by hand, whatever its name, when it copies the same Postgres database into the same ClickHouse database, so running `make clickpipes` or `make setup` after the console steps does not create a second one.
 
 ### 1. Create the ClickPipe
 

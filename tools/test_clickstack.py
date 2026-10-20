@@ -43,7 +43,8 @@ def test_each_definition_points_at_the_collectors_tables():
         s = clickstack.build_source(kind, "c")
         assert s["kind"] == kind and s["connection"] == "c" and s["from"] == {"databaseName": "retail_otel", "tableName": table}
     metric = clickstack.build_source("metric", "c")
-    assert metric["from"] == {"databaseName": "retail_otel"} and metric["metricTables"]["exponential histogram"] == "otel_metrics_exponential_histogram"
+    # the live API rejects a metric source without from.tableName; the console sends "" there and for the table it does not read
+    assert metric["from"] == {"databaseName": "retail_otel", "tableName": ""} and metric["metricTables"]["exponential histogram"] == ""
     assert set(metric["metricTables"]) == {"gauge", "histogram", "sum", "summary", "exponential histogram"}
 
 

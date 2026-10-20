@@ -22,7 +22,7 @@ If you have about an hour, do the steps below up to **7** (the services, the acc
 make setup
 ```
 
-It does the rest of modules 01 to 08 for you, in the right order: the ClickHouse databases, the Postgres migrations, the **ClickPipe** (through the Cloud API), the Postgres data, product search, the real-time rollups, the local cluster and the application, the **ClickStack sources** (through the API), 30 days of history, the live generators and the simulated shoppers. It takes about ten minutes and prints what it is doing, so the hour goes on reading and exploring, not on setting up. Every step is safe to repeat: if one fails, fix it and run `make setup` again. Then go through the modules to see what was built and why, in any order; each one describes the same steps by hand.
+It does the rest of modules 01 to 08 for you, in the right order: the ClickHouse databases, the Postgres migrations, the **ClickPipe** (through the Cloud API), the Postgres data, product search, the real-time rollups, the local cluster and the application, the **ClickStack sources** (through the API), 30 days of history, the live generators and the simulated shoppers. It takes about ten minutes once the images are built (`make prefetch`, module 00) and prints what it is doing, so the hour goes on reading and exploring, not on setting up. Every step is safe to repeat: if one fails, fix it and run `make setup` again. What exists is recognised and left alone: a ClickPipe you made by hand, the ClickStack sources, and the 30 days of history, which are loaded once. Then go through the modules to see what was built and why, in any order; each one describes the same steps by hand.
 
 Or take the slow way: skip the API key (step 6) and follow every module in turn.
 

@@ -35,7 +35,7 @@ STEPS=(
   "rollups|Create the real-time rollups (materialized views)|make ch-mvs"
   "app|Start the Kubernetes cluster and the application|make cluster images secrets app"
   "clickstack|Create the ClickStack sources through the Cloud API|make clickstack-setup"
-  "backfill|Load 30 days of history into ClickHouse|make backfill"
+  "backfill|Load 30 days of history into ClickHouse (skipped if it is there)|make backfill"
   "generators|Start the live traffic generators|make generators-start"
   "simulator|Start the simulated shoppers (4 browsers)|make sim-start USERS=4"
 )

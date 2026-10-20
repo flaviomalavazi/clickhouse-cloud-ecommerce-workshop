@@ -17,7 +17,7 @@ Everything is configured in the **root `.env`** and started with `make`. The wor
 
 | You want to | Run |
 |---|---|
-| load 30 days of history (5 million events, about 1½ minutes) | `make backfill` |
+| load 30 days of history (5 million events, about 1½ minutes; skipped if it is already there, `FORCE=1` loads it again) | `make backfill` |
 | start the live generators | `make generators-start` |
 | start browser shoppers (4 by default) | `make sim-start USERS=4` |
 | stop one, or everything | `make generators-stop`, `make sim-stop`, `make traffic-stop` |
@@ -48,7 +48,7 @@ Both halves plan a session with the same function, `plan_session()` in [`shared/
 
 **`mixed`**: `BACKFILL_RATIO` of the sessions (default `0.5`) are dated at a random point inside the last `BACKFILL_DAYS` (default `180`), with the hour of day drawn from the weight curve; the rest are live. Backfilled sessions stop `BACKFILL_GAP_DAYS` (default `1`) short of now, so "today" stays purely live: `WHERE collector_tstamp >= today()` selects exactly the live traffic.
 
-`make backfill` is a Kubernetes Job that runs the web producer with `EVENT_MODE=mixed BACKFILL_RATIO=1.0 BACKFILL_DAYS=30 PRODUCE_MAX_EVENTS=5000000 PRODUCE_WORKER_MODE=process PRODUCE_WORKERS=2 PRODUCE_TARGET_EPS=0`: history only, as fast as ClickHouse takes it. It is not part of the Helm release, so upgrading the chart never runs it again.
+`make backfill` is a Kubernetes Job that runs the web producer with `EVENT_MODE=mixed BACKFILL_RATIO=1.0 BACKFILL_DAYS=30 PRODUCE_MAX_EVENTS=5000000 PRODUCE_WORKER_MODE=process PRODUCE_WORKERS=2 PRODUCE_TARGET_EPS=0`: history only, as fast as ClickHouse takes it. It is not part of the Helm release, so upgrading the chart never runs it again, and `make backfill` itself first checks for events older than two days in `snowplow_events` and skips the load when they are there (`make backfill FORCE=1` loads it anyway), so `make setup` can be repeated without doubling the history.
 
 ### The hour-of-day curve
 

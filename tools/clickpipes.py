@@ -148,6 +148,21 @@ def find_pipe(pipes: list[dict], name: str) -> dict | None:
     return next((p for p in pipes if p.get("name") == name), None)
 
 
+def find_equivalent(pipes: list[dict], payload: dict) -> dict | None:
+    """A pipe, whatever its name, that already copies this Postgres database into this ClickHouse database.
+
+    The console names a pipe `clickpipe-<service>`, so a pipe made by hand in module 03 does not carry our name; a
+    second pipe into the same tables would write every row twice, so it counts as the one we wanted.
+    """
+    want = payload["source"]["postgres"]
+    for p in pipes:
+        have = (p.get("source") or {}).get("postgres") or {}
+        if (have.get("host") == want["host"] and have.get("database") == want["database"]
+                and (p.get("destination") or {}).get("database") == payload["destination"]["database"]):
+            return p
+    return None
+
+
 def get_pipe(api: CloudAPI, ctx: Context, pipe_id: str) -> dict:
     return api.result("GET", f"{pipes_path(ctx)}/{pipe_id}")
 
@@ -174,8 +189,12 @@ def wait_until_running(
 
 
 def create_pipe(api: CloudAPI, ctx: Context, payload: dict) -> tuple[dict, bool]:
-    """Create the pipe unless one with that name exists. Returns (the pipe, whether it was just created)."""
-    existing = find_pipe(list_pipes(api, ctx), payload["name"])
+    """Create the pipe unless it exists (by name, or the same source and destination under another name).
+
+    Returns (the pipe, whether it was just created).
+    """
+    pipes = list_pipes(api, ctx)
+    existing = find_pipe(pipes, payload["name"]) or find_equivalent(pipes, payload)
     if existing:
         return existing, False
     return api.result("POST", pipes_path(ctx), payload), True
@@ -207,14 +226,15 @@ def wait_for_mirror(timeout: float = 900, poll: float = 5, out: Callable[[str], 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["create", "status", "wait-sync", "payload", "delete"])
-    ap.add_argument("--name", default=PIPE_NAME)
+    ap.add_argument("--name", default=None, help=f"the pipe's name (default {PIPE_NAME}; status and delete also find a pipe made by hand with the same source and destination)")
     ap.add_argument("--destination", default=DESTINATION_DATABASE, help="create, payload: the ClickHouse database to write to (default retail_oltp)")
     ap.add_argument("--no-wait", action="store_true", help="create: do not wait for the pipe to be Running")
     ns = ap.parse_args()
+    name = ns.name or PIPE_NAME
 
     if ns.command == "payload":
         import json
-        print(json.dumps(redacted(payload_from_env(name=ns.name, destination_database=ns.destination)), indent=2))
+        print(json.dumps(redacted(payload_from_env(name=name, destination_database=ns.destination)), indent=2))
         return 0
     if ns.command == "wait-sync":
         return 0 if wait_for_mirror() else 1
@@ -222,20 +242,23 @@ def main() -> int:
     api, ctx = context_from_env()
     print(f"service {ctx.service_name} ({ctx.service_id})")
     if ns.command == "create":
-        pipe, created = create_pipe(api, ctx, payload_from_env(name=ns.name, destination_database=ns.destination))
+        pipe, created = create_pipe(api, ctx, payload_from_env(name=name, destination_database=ns.destination))
         print(("created" if created else "already there:"), f"ClickPipe {pipe['name']} ({pipe['id']}), state {pipe.get('state')}")
         if not ns.no_wait:
             wait_until_running(api, ctx, pipe["id"])
         return 0
-    pipe = find_pipe(list_pipes(api, ctx), ns.name)
+    pipes = list_pipes(api, ctx)
+    pipe = find_pipe(pipes, name)
+    if not pipe and ns.name is None:        # no name asked for: the pipe that copies this database, by whoever made it
+        pipe = find_equivalent(pipes, payload_from_env(name=name, destination_database=ns.destination))
     if ns.command == "status":
         if not pipe:
-            print(f"no ClickPipe named {ns.name}")
+            print(f"no ClickPipe named {name}")
             return 1
         print(f"ClickPipe {pipe['name']} ({pipe['id']}): {pipe.get('state')}")
         return 0
     if not pipe:                       # delete
-        print(f"no ClickPipe named {ns.name}: nothing to delete")
+        print(f"no ClickPipe named {name}: nothing to delete")
         return 0
     api.request("DELETE", f"{pipes_path(ctx)}/{pipe['id']}")
     print(f"deleted ClickPipe {pipe['name']} ({pipe['id']})")

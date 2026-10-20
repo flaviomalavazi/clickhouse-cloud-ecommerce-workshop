@@ -41,7 +41,7 @@ METRIC_TABLES = {
     "histogram": "otel_metrics_histogram",
     "sum": "otel_metrics_sum",
     "summary": "otel_metrics_summary",
-    "exponential histogram": "otel_metrics_exponential_histogram",
+    "exponential histogram": "",    # blank, as the console leaves it (the table exists; ClickStack does not read it)
 }
 ORDER = ("trace", "log", "metric", "session")
 
@@ -55,7 +55,7 @@ def build_source(kind: str, connection: str, database: str = DATABASE) -> dict:
     base = {"name": f"ClickShop {kind.capitalize()}s" if kind != "metric" else "ClickShop Metrics", "kind": kind, "connection": connection}
     if kind == "log":
         return {**base, "name": "ClickShop Logs", "from": {"databaseName": database, "tableName": TABLES[kind]},
-                "defaultTableSelectExpression": "Timestamp, ServiceName, SeverityText, Body",
+                "defaultTableSelectExpression": "Timestamp, ServiceName as service, SeverityText as level, Body",
                 "timestampValueExpression": "Timestamp", "displayedTimestampValueExpression": "Timestamp",
                 "serviceNameExpression": "ServiceName", "severityTextExpression": "SeverityText", "bodyExpression": "Body",
                 "eventAttributesExpression": "LogAttributes", "resourceAttributesExpression": "ResourceAttributes",
@@ -64,16 +64,19 @@ def build_source(kind: str, connection: str, database: str = DATABASE) -> dict:
                 "useTextIndexForImplicitColumn": "auto"}
     if kind == "trace":
         return {**base, "name": "ClickShop Traces", "from": {"databaseName": database, "tableName": TABLES[kind]},
-                "defaultTableSelectExpression": "Timestamp, ServiceName, StatusCode, round(Duration / 1e6), SpanName",
-                "timestampValueExpression": "Timestamp", "durationExpression": "Duration", "durationPrecision": 9,
+                "defaultTableSelectExpression": "Timestamp, ServiceName as service, StatusCode as level, round(Duration / 1e6) as duration, SpanName",
+                "timestampValueExpression": "Timestamp", "displayedTimestampValueExpression": "Timestamp", "durationExpression": "Duration", "durationPrecision": 9,
                 "traceIdExpression": "TraceId", "spanIdExpression": "SpanId", "parentSpanIdExpression": "ParentSpanId",
                 "spanNameExpression": "SpanName", "spanKindExpression": "SpanKind", "statusCodeExpression": "StatusCode",
                 "statusMessageExpression": "StatusMessage", "serviceNameExpression": "ServiceName",
                 "resourceAttributesExpression": "ResourceAttributes", "eventAttributesExpression": "SpanAttributes",
-                "spanEventsValueExpression": "Events", "implicitColumnExpression": "SpanName"}
+                "spanEventsValueExpression": "Events", "spanLinksValueExpression": "Links",
+                "implicitColumnExpression": "SpanName"}
     if kind == "metric":
-        return {**base, "from": {"databaseName": database}, "metricTables": dict(METRIC_TABLES),
-                "timestampValueExpression": "TimeUnix", "resourceAttributesExpression": "ResourceAttributes"}
+        # the API rejects a metric source without from.tableName (its docs do not say so); the console sends ""
+        return {**base, "from": {"databaseName": database, "tableName": ""}, "metricTables": dict(METRIC_TABLES),
+                "timestampValueExpression": "TimeUnix", "resourceAttributesExpression": "ResourceAttributes",
+                "serviceNameExpression": "ServiceName"}
     if kind == "session":
         return {**base, "name": "ClickShop Sessions", "from": {"databaseName": database, "tableName": TABLES[kind]},
                 "timestampValueExpression": "TimestampTime", "resourceAttributesExpression": "ResourceAttributes"}

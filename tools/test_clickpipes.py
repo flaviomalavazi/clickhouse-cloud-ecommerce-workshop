@@ -83,6 +83,25 @@ def test_an_existing_pipe_is_left_alone():
     assert [c[0] for c in api.calls] == ["GET"]
 
 
+def test_a_pipe_made_by_hand_under_the_consoles_name_counts_as_ours():
+    mine = payload()
+    by_hand = {"id": "p7", "name": "clickpipe-workshop", "state": "Running",
+               "source": {"postgres": {"host": "pg.example.cloud", "database": "clickshop"}}, "destination": {"database": "retail_oltp"}}
+    api = FakeAPI(pipes=[by_hand])
+    pipe, created = clickpipes.create_pipe(api, CTX, mine)
+    assert (pipe["id"], created) == ("p7", False)
+    assert [c[0] for c in api.calls] == ["GET"]           # nothing is posted: a second pipe would write every row twice
+
+
+def test_a_pipe_for_another_database_or_destination_is_not_ours():
+    other_db = {"id": "p1", "name": "x", "source": {"postgres": {"host": "pg.example.cloud", "database": "clickshop_apitest"}}, "destination": {"database": "retail_oltp"}}
+    other_dest = {"id": "p2", "name": "y", "source": {"postgres": {"host": "pg.example.cloud", "database": "clickshop"}}, "destination": {"database": "retail_oltp_apitest"}}
+    other_host = {"id": "p3", "name": "z", "source": {"postgres": {"host": "elsewhere.example", "database": "clickshop"}}, "destination": {"database": "retail_oltp"}}
+    api = FakeAPI(pipes=[other_db, other_dest, other_host])
+    pipe, created = clickpipes.create_pipe(api, CTX, payload())
+    assert created and pipe["id"] == "pipe-1"
+
+
 def test_a_new_pipe_is_posted_once():
     api = FakeAPI()
     pipe, created = clickpipes.create_pipe(api, CTX, payload())

@@ -52,7 +52,7 @@ The story the workshop tells:
 
 ## Two ways to follow it
 
-**The one-hour way.** Create the two Cloud services and an API key, fill in `.env` ([module 01](workshop/01-cloud-services/README.md)), and run **`make setup`**. It builds everything modules 01 to 08 build by hand (the ClickPipe and the ClickStack sources through the Cloud API, search, the real-time rollups, the local cluster and application, 30 days of history, the live generators and the browser shoppers) in about ten minutes, so the hour goes on reading the modules, looking at what was built and exploring it in ClickHouse Cloud.
+**The one-hour way.** Create the two Cloud services and an API key, fill in `.env` ([module 01](workshop/01-cloud-services/README.md)), and run **`make setup`**. It builds everything modules 01 to 08 build by hand (the ClickPipe and the ClickStack sources through the Cloud API, search, the real-time rollups, the local cluster and application, 30 days of history, the live generators and the browser shoppers) in about ten minutes (once `make prefetch` from module 00 has built the images), so the hour goes on reading the modules, looking at what was built and exploring it in ClickHouse Cloud.
 
 **The slow way.** Follow the modules in order. Each one describes the same steps by hand, ends with a check (`make check-NN`) and leaves the system working. Module 02 is optional.
 

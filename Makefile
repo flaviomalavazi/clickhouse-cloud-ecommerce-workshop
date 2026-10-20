@@ -28,7 +28,7 @@ TOOLS_TTY := docker run --rm -it --env-file .env -v "$(CURDIR)":/workspace:ro $(
 .DEFAULT_GOAL := help
 .PHONY: help check-env tools-image doctor prefetch cluster images secrets apply-env app otel-k8s setup notebook \
         pg-setup pg-migrate pg-seed pg-reset psql clickpipes clickpipes-status clickpipes-wait clickpipes-delete clickstack-setup clickstack-list ch-bootstrap ch-search ch-mvs ch-client \
-        generators-start generators-stop backfill sim-start sim-stop traffic-stop \
+        generators-start generators-stop backfill backfill-run sim-start sim-stop traffic-stop \
         break-card-gateway fix-card-gateway status logs down nuke-data \
         test images-webp dev-frontend
 
@@ -166,7 +166,10 @@ generators-stop: ## Stop the live traffic generators
 	  --set producers.enabled=false --wait >/dev/null
 	@echo "generators stopped"
 
-backfill: ## Load 30 days of history into ClickHouse (a Kubernetes Job, a few minutes)
+backfill: check-env tools-image ## Load 30 days of history into ClickHouse (a Kubernetes Job, a few minutes); skipped if it is there, FORCE=1 loads it again
+	@if [ -z "$(FORCE)" ] && $(TOOLS_RUN) python /app/tools/backfill_guard.py; then :; else $(MAKE) --no-print-directory backfill-run; fi
+
+backfill-run:
 	@$(KUBECTL) -n $(NS) delete job backfill --ignore-not-found >/dev/null
 	@$(HELM) template clickshop $(APP_CHART) -n $(NS) --set backfill.enabled=true \
 	  --show-only templates/backfill.yaml | $(KUBECTL) apply -n $(NS) -f - >/dev/null
