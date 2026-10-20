@@ -19,6 +19,8 @@
 
 ### 1. Open ClickStack and create the data sources
 
+> **The fast way.** Open ClickStack from your service in the console once (that creates its connection to your service), then run `make clickstack-setup`. It creates the four sources below through the Cloud API, linked to each other, and leaves any source that already exists alone; `make setup` runs it for you. It needs the API key from [module 01](../01-cloud-services/README.md). To see the sources it made, run `make clickstack-list`. Or do it by hand, as follows.
+
 In the ClickHouse Cloud console, open your `clickshop` service and launch **ClickStack**. ClickStack reads the tables the OpenTelemetry collector fills; the collector in this workshop writes them to the database **`retail_otel`**, not `default`, so you tell ClickStack where they are. In the ClickStack settings, create (or confirm) four **sources**, using the connection to your service and:
 
 | Source type | Database | Table |

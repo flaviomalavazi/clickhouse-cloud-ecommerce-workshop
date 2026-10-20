@@ -1,8 +1,10 @@
-# Module 02: Postgres OLTP
+# Module 02: Postgres OLTP (optional)
 
-**Goal:** load the ClickShop catalogue, customers, stock and order history into Postgres, and understand why the transactional data lives there.
+> **You can skip this module.** The data it looks at was loaded by `make pg-setup` in [module 01](../01-cloud-services/README.md), and nothing later depends on having read it. It is here for the curious: a tour of the transactional side, and why it lives in Postgres and not in ClickHouse.
 
-**Time:** about 15 minutes. `make pg-setup` takes 13 s on an empty database.
+**Goal:** look at the ClickShop catalogue, customers, stock and order history in Postgres, and understand why the transactional data lives there.
+
+**Time:** about 10 minutes.
 
 **You'll learn:**
 - what an OLTP schema looks like for a shop: normalised tables, constraints, one-row-at-a-time transactions;
@@ -11,21 +13,15 @@
 
 ## Before you start
 
-`make check-01` passes (module 01).
+`make check-01` and `make check-02` pass (module 01 loaded the data).
 
 ## Steps
 
-### 1. Load the data
+### 1. What was loaded
 
-```bash
-make pg-setup
+Module 01's `make pg-setup` created the `clickshop` database if it did not exist, applied `sql/postgres/*.sql`, and seeded it from the catalogue in `assets/catalog_details/catalog.json`. The seed is deterministic, so everyone gets the same data, and it is idempotent. You should have:
+
 ```
-
-It creates the `clickshop` database if it does not exist, applies `sql/postgres/*.sql`, and seeds it from the catalogue in `assets/catalog_details/catalog.json`. The seed is deterministic, so everyone gets the same data, and it is idempotent: running it again says `products already seeded` and changes nothing.
-
-You should see:
-
-```text
   categories        5
   products        978   active 691, on placeholder image 287
   stock           978   low (<=15 units) 30
@@ -34,7 +30,7 @@ You should see:
   order_items   5,989
 ```
 
-The catalogue has 978 products, and 691 are **active**: the ones its owners did not deactivate or flag for deletion and that have a photo. The other 287 stay in the table as inactive rows (a soft delete), and the storefront never shows them. 30 active products start with only 3 to 15 units, so they sell out while the simulator runs in module 07. The 2,000 orders are history over the last two years.
+The catalogue has 978 products, and 691 are **active**: the ones its owners did not deactivate or flag for deletion and that have a photo. The other 287 stay in the table as inactive rows (a soft delete), and the storefront never shows them. 30 active products start with only 3 to 15 units, so they sell out while the simulator runs in module 07. The 2,000 orders are history over the last two years. (`make pg-setup` is `make pg-migrate`, which creates the tables, followed by `make pg-seed`, which loads the data.)
 
 ### 2. Tour the schema
 

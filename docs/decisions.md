@@ -16,7 +16,7 @@ and the change is written down below.
 | D6 | Search uses only ClickHouse full-text search | Confirmed |
 | D7 | Drop the fraud-detection-svc hop; keep the pix and boleto gateways | Confirmed |
 | D8 | Separate instruction sources for human mode and agent mode | Confirmed |
-| D9 | `products_search` is **built from the CDC-replicated Postgres tables** by a refreshable MV that runs **every 1 minute**, not by a seed script. Stock levels then show in search, and the catalogue has one source of truth. | Confirmed |
+| D9 | `products_search` is **built from the CDC-replicated Postgres tables** by a refreshable MV that runs **every 5 minutes** (it was every minute; see D46), not by a seed script. Stock levels then show in search, and the catalogue has one source of truth. | Confirmed |
 | D10 | Remove the **search journey** (`storefront-bff → search-svc`) and the `search-svc` role. Today it is a telemetry-only call whose result is ignored, so a trace would wrongly suggest search-svc does the searching. Keep the catalog journey. **Every search must emit its own span** (`search.products`, see Phase 3.1), with the ClickHouse query span as its child, so searches stay visible in ClickStack. | Confirmed |
 | D11 | Remove persona sign-in (`AuthContext`, `/api/auth/personas`, `/account`) from the workshop. It reads `user_profiles`, which only the fraud generator fills. | Confirmed |
 | D12 | The owner adds the source JPEGs at `assets/product_images/` in the workshop repo. Convert them to WebP in `frontend/public/images/` (800 px, quality 85, **about 16 MiB measured** for all 947 images) and serve them from there; no CDN. **Commit only the WebP output.** The JPEGs (437 MB) sit in the working tree but stay gitignored and are never committed. | Confirmed |
@@ -51,6 +51,11 @@ and the change is written down below.
 | D41 | `.env.example` no longer lists `SIM_SESSIONS` (amends D31): the number of browsers is `make sim-start USERS=n`, because it sets the pod's memory limit as well. | Proposed |
 | D42 | `make nuke-data` reseeds Postgres from scratch (TRUNCATE and the seed) and empties the `retail_oltp` mirror tables in ClickHouse, so the ClickPipe ingests the seed again from empty. It **never touches the web analytics events, the card transactions, the rollups built from them or the ClickStack telemetry** (`retail_otel`): they are slow to rebuild. The order matters because the ClickPipe ignores TRUNCATE: wait for the pipe to catch up, empty the mirror (not the pipe's own `_peerdb_` tables), reseed Postgres, wait for the mirror to fill, then refresh `products_search`. Without a ClickPipe only Postgres is reseeded. This is the owner's rule; the first version emptied the events and telemetry and was wrong. | Confirmed |
 | D43 | The workshop sells **only the products the catalogue marks active**. `is_active` in the seed is the catalogue's own `is_active` AND NOT `flagged_for_deletion` AND an image exists (the catalogue's `is_active` used to be ignored). The repo carries images **only for those products**: `assets/scripts/build_images.py` converts exactly them (`--prune` removes the rest), and a test fails if an image of a deactivated product, or a missing image of an active one, is in the repo. `assets/catalog_details/catalog.json` is kept untouched as the reference, and every catalogue product is still seeded (so the catalogue ids stay stable), the deactivated ones as inactive rows on the placeholder image. | Confirmed |
+| D44 | The ClickPipe and the ClickStack sources are created **through the ClickHouse Cloud API** (`tools/clickpipes.py`, `tools/clickstack.py`), with an optional API key in `.env` (`CLICKHOUSE_CLOUD_API_KEY_ID`, `CLICKHOUSE_CLOUD_API_KEY_SECRET`, and `CLICKHOUSE_CLOUD_ORGANIZATION_ID` only if the key sees several organisations). The console steps stay in the module READMEs for doing it by hand. | Confirmed |
+| D45 | `make setup` builds everything at once for the one-hour format, in the order **Postgres migrations, ClickPipe, seed** (the pipe is created against empty tables and the seed reaches ClickHouse as changes). The by-hand path in the modules loads Postgres first (module 01's `make pg-setup`) and creates the pipe after, with an initial load; both end in the same state. `make pg-migrate` and `make pg-seed` are the two halves of `make pg-setup`. | Confirmed |
+| D46 | The ClickPipe's sync interval is **60 s** (the console default; the plan suggested 10), and the `products_search` refreshable view refreshes **every 5 minutes** (was every minute, D9). The freshness budget of search is the sync interval plus up to 5 minutes; `SYSTEM REFRESH VIEW` skips the second wait. | Confirmed |
+| D47 | Module 02 (the Postgres tour) is **optional**: the steps it needed (create the tables and load the data) are part of module 01. | Confirmed |
+| D48 | `notebooks/01_create_clickpipes.ipynb` makes the ClickPipe calls one at a time, in the setup order (migrate, create the pipe, seed). It imports `tools/clickpipes.py`, the code `make clickpipes` runs, so there is one implementation; `make notebook` runs it in JupyterLab in a container. | Confirmed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -758,4 +763,36 @@ can be changed after creation.
   reading and console time. Module 01's time is mostly waiting for the services to start and was not measured.
 - **Agent mode** is not mentioned in the root README yet: the plan puts a pointer to `AGENTS.md` there, and
   Phase 8 creates the file.
+
+### Changes after the Phase 7 review
+
+The owner's answers to the review: the console labels in modules 01 to 03 and 08 are right; the sync interval
+is 60 s; the search view refreshes every 5 minutes; the console steps and the API calls should both exist; and
+module 02 is optional (D44 to D48).
+
+- **The Cloud API has more than its documentation page says.** The ClickStack API page lists sources as
+  list-only, but the live OpenAPI document (`https://api.clickhouse.cloud/v1`, which is the spec itself) has
+  `POST`, `PUT` and `DELETE` for ClickStack sources (a beta endpoint, permission
+  `control-plane:service:manage-clickstack-api`), and for dashboards, saved searches, alerts, roles and
+  webhooks. The ClickPipes endpoints need `control-plane:service:manage-clickpipes`. The Postgres API
+  even has `GET .../postgres/{id}/caCertificates`, which this workshop does not use (the participant
+  downloads the certificate once, module 01).
+- **Where the Postgres ClickPipe's settings live in the request** (they differ from the names in the console and
+  from what one would guess): `tableMappings`, `settings.syncIntervalSeconds`, `settings.allowNullableColumns`
+  ("Preserve NULL values from source") and `settings.deleteOnMerge` ("Remove deleted rows during merges") are
+  all under `source.postgres`; `destination` holds only the database. `replicationMode: "cdc"` is "Initial load
+  + CDC". A pipe goes Provisioning, Setup, Snapshot, Running.
+- **A ClickStack source needs a `connection` id, and no endpoint lists connections.** It is read from a
+  source that exists. On a service where ClickStack has never been opened there is none, so `make
+  clickstack-setup` stops with the instruction to open ClickStack once. `make setup` treats that one step as
+  non-fatal, carries on, and says at the end what is left to do. This is untested on a fresh service.
+- **`clickstack.py setup` leaves existing sources alone** (same kind, same table) and creates the missing ones,
+  linked to each other; `--force` overwrites. The column expressions come from the tables the collector creates
+  (`otel_logs` has no `TimestampTime`; `hyperdx_sessions` does).
+- **`ALTER TABLE ... MODIFY REFRESH`** works on a refreshable view in ClickHouse Cloud 26.6, so
+  `10_products_search.sql` states the schedule twice (`CREATE ... IF NOT EXISTS` would leave a view created
+  with the old one): a service that had the one-minute view now has the five-minute one after `make ch-search`.
+- **The notebook was run headless** against the real services without a key: setup, the migration cell, the
+  masked request and the ClickHouse listing work; the first API cell stops with the "no API key" message.
+  Tests keep it in step with the code it calls (`tools/test_notebook.py`).
 

@@ -50,15 +50,23 @@ The story the workshop tells:
 - ClickHouse **joins both** for analytics, and powers **search** from the replicated catalogue.
 - **ClickStack** observes the whole system on the same engine.
 
+## Two ways to follow it
+
+**The one-hour way.** Create the two Cloud services and an API key, fill in `.env` ([module 01](workshop/01-cloud-services/README.md)), and run **`make setup`**. It builds everything modules 01 to 08 build by hand (the ClickPipe and the ClickStack sources through the Cloud API, search, the real-time rollups, the local cluster and application, 30 days of history, the live generators and the browser shoppers) in about ten minutes, so the hour goes on reading the modules, looking at what was built and exploring it in ClickHouse Cloud.
+
+**The slow way.** Follow the modules in order. Each one describes the same steps by hand, ends with a check (`make check-NN`) and leaves the system working. Module 02 is optional.
+
+You can also mix them: `make setup` is safe to run at any point, it skips what is done, and every piece has its own command (`make clickpipes`, `make ch-search`, `make ch-mvs`, `make clickstack-setup`, ...).
+
 ## The modules
 
-Do them in order: each ends with a check (`make check-NN`) and leaves the system working. Times are for a first run, including the waiting.
+Times are for a first run by hand, including the waiting.
 
 | | Module | You learn | Time |
 |---|---|---|---|
 | 00 | [Prerequisites](workshop/00-prerequisites/README.md) | What the workshop needs; download everything **before the day** | 15 min + download |
-| 01 | [Cloud services](workshop/01-cloud-services/README.md) | Create the ClickHouse and Postgres services; the single `.env` | 20 min |
-| 02 | [Postgres OLTP](workshop/02-postgres-oltp/README.md) | Load and tour the transactional data; why it lives in Postgres | 15 min |
+| 01 | [Cloud services](workshop/01-cloud-services/README.md) | Create the ClickHouse and Postgres services; the single `.env`; load Postgres | 20 min |
+| 02 | [Postgres OLTP](workshop/02-postgres-oltp/README.md) *(optional)* | Tour the transactional data; why it lives in Postgres | 10 min |
 | 03 | [CDC ClickPipe](workshop/03-cdc-clickpipe/README.md) | Replicate Postgres into ClickHouse; `ReplacingMergeTree` and `FINAL` | 25 min |
 | 04 | [Full-text search](workshop/04-full-text-search/README.md) | The `text` index, refreshable materialized views | 20 min |
 | 05 | [Run the app](workshop/05-run-the-app/README.md) | The storefront on k3d; follow an order into ClickHouse | 25 min |
@@ -68,12 +76,12 @@ Do them in order: each ends with a check (`make check-NN`) and leaves the system
 | 09 | [ClickHouse Agents](workshop/09-clickhouse-agents/README.md) | Ask the data questions in plain language *(not written yet)* | |
 | 10 | [Cleanup](workshop/10-cleanup/README.md) | Remove everything, in the right order | 10 min |
 
-About three and a half hours in all. If you are running this for a group, ask everyone to finish module 00 beforehand.
+About three and a half hours by hand, and about one hour with `make setup`. If you are running this for a group, ask everyone to finish module 00 beforehand.
 
 ## What you need
 
 - A laptop with **Docker** (Docker Desktop, OrbStack or Colima) given **8 GB of memory and 4 CPUs**, about **10 GB of free disk**, and `make` and `git`. Nothing else is installed: `k3d`, `kubectl` and `helm` run from containers.
-- A **ClickHouse Cloud** account where you can create a service and a Managed Postgres instance.
+- A **ClickHouse Cloud** account where you can create a service and a Managed Postgres instance, and, for `make setup`, an **API key** with the Admin role.
 - An internet connection.
 
 Tested on macOS (Apple silicon) with OrbStack.
@@ -86,7 +94,9 @@ Run `make help` for the full list. The ones you will use:
 |---|---|
 | `make prefetch` | download and build everything (module 00) |
 | `make doctor` | check Docker, `.env` (shown masked) and both databases |
-| `make ch-bootstrap`, `make pg-setup`, `make ch-search`, `make ch-mvs` | create the databases and tables, seed Postgres, build search, create the rollups |
+| `make setup` | **everything at once** (needs the API key): ClickPipe, search, rollups, cluster, ClickStack sources, history and load |
+| `make ch-bootstrap`, `make pg-setup`, `make ch-search`, `make ch-mvs` | create the databases and tables, set up Postgres (`pg-migrate` then `pg-seed`), build search, create the rollups |
+| `make clickpipes`, `make clickpipes-status`, `make clickstack-setup`, `make notebook` | the ClickPipe and the ClickStack sources through the Cloud API; the notebook that shows the ClickPipe request |
 | `make psql`, `make ch-client` | a SQL prompt on Postgres, on ClickHouse |
 | `make cluster images secrets app` | start the local cluster and the application (module 05) |
 | `make backfill`, `make generators-start`, `make sim-start USERS=4` | fill ClickHouse; start the live generators; start the browser shoppers |
