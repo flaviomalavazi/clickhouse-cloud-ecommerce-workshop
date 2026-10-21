@@ -65,6 +65,10 @@ and the change is written down below.
 | D55 | **No password-shaped literal in tests, docs or notebooks** (`tools/test_no_credential_literals.py`), after GitGuardian flagged a fixture password in `tools/test_clickpipes.py` (commit `de9c934`). Tests generate fake credentials at run time. That one file is on an accepted list, by the owner's decision, and the list is not to grow. | Confirmed |
 | D56 | The agent **asks before anything destructive** and never deletes Cloud resources (the participant does, in the console, in module 10's order). `make nuke-data` waits for a typed word, so the agent hands it to the participant. State an agent leaves behind is written to the progress file's `notes` (`test_order_id`, `card_gateway_broken`) so a later session cleans it up. | Confirmed |
 | D57 | A committed **`.claude/settings.json` denies Claude Code reading `.env`** (`Read(./.env)`, `Read(**/.env)`), so the first golden rule is enforced and not only written. It holds in subagents and slash commands and cannot be overridden by an allow rule. Not used: `Read(./.env.*)` (it matches `.env.example`), Bash rules such as `Bash(* .env)` (they would block `cp .env.example .env`, which the playbook has the agent run; the Read rule already covers `cat`, `head`, `tail` and `sed` on that path), and the sandbox (it changes how Bash is prompted for everyone). Limits, from the docs: it applies only when Claude Code starts in the repository root, a script that opens the file itself is not caught, and a participant can edit the file locally. | Confirmed |
+| D58 | **`docs/data-dictionary.md` is the one reference** for every table and column across the three databases, the `event_name` catalogue with what each `se_*` field holds, the join keys, and the rules a query must follow. It was checked against live data, and `tools/test_data_dictionary.py` fails if a table or column in `sql/` is not described (mutation-tested). It is the raw material for the agent's instructions. | Confirmed |
+| D59 | **Module 09 is a draft written from the ClickHouse documentation, and what the documentation does not say is marked `TODO(owner)` and not assumed**: how an agent reaches the service's data (built-in tool or MCP server), which database role it uses, whether that is read-only, trial availability, and the exact permission label. The agent's instructions and questions are outlines headed `TODO(owner): co-author`; no final prompt was written. | Open: owner verifies in the console |
+| D60 | **Prices and order totals are USD** (the catalogue, `orders.total_amount`, `order_items.unit_price`, the checkout events' `se_value`); the storefront only converts for display (`pt` as BRL at 5.4, `es` as MXN at 18). `credit_card_transactions.bill_value` is in the card's own currency and is never summed across currencies. Stated in the dictionary because an agent will otherwise assume BRL. | Confirmed |
+| D61 | The module 06 card-anomaly query counts a negative `bill_value` **on expenses only**: chargebacks are negative by design (97 % of them), and counting them gave 68,741 "anomalies" against about 4,450 for every other kind. The background traffic also has a baseline of about 2.6 % negative legitimate expenses, so that column reads a little high; the shop's own `merchant_name = 'ClickShop'` rows are exact. | Confirmed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -843,3 +847,59 @@ Run on the owner's service, on scratch resources, with the owner's pipe and sour
 - **The `clickhousectl` recovery path** the plan marks as optional ("ask the owner first"): not built, and the owner said they do not want it, so do not offer it again. `make setup` already is the recovery path for a participant short of time, and the console flow stays the teaching one.
 - **Nothing was run by an actual agent in guide mode.** The playbooks were checked against the system, not followed by one. That is Phase 10's dry run, with Claude Code and, if possible, a second agent.
 - **ClickHouse Agents (module 09)** stays a placeholder in both modes: Phase 9, with the owner.
+
+## Phase 9: ClickHouse Agents
+
+### What was written
+
+- **`docs/data-dictionary.md`** (D58): the three databases and how fresh each is; eleven rules every query must follow; the shop's vocabulary (order lifecycle, funnel, zero-result searches, low stock, the seven card anomalies); every table and column of `retail_oltp`, `retail_analytics` (with the event catalogue) and `retail_otel` (services, span names and attributes, metrics); the join keys; and how to tell real data from generated.
+- **`workshop/09-clickhouse-agents/README.md`**: the human module, from the documentation (launch, **Create New Agent** and its fields, **Capabilities**, asking questions, checking an answer against SQL, improving the instructions, sharing and memory). A banner and `TODO(owner)` notes say what is not verified.
+- **`workshop/09-clickhouse-agents/agents/clickshop-analyst/instructions.md` and `questions.md`**: outlines with `TODO(owner): co-author` headers (D59). The questions are ten candidates, easy to hard, each with where its answer lives, a check that was run against a live service, and what a wrong answer tends to look like.
+- **`agent-mode/09-clickhouse-agents.md`**: the playbook, replacing the placeholder, with a fallback (`fallback-sql`) if the Beta feature is unavailable or cannot reach the data.
+- **`tools/test_data_dictionary.py`**; the drift test of agent mode now allows the shared agent assets under `workshop/09-clickhouse-agents/agents/` and still forbids the human READMEs.
+
+### What the documentation says, and what it does not
+
+From the quickstart, the overview and the sharing and memory pages (2026-10-21):
+
+- **Launch:** the left sidebar item **ClickHouse agents** (Beta), then **Launch ClickHouse agents**, which opens the Agent Builder; also at `ai.clickhouse.cloud`.
+- **Create:** **Create New Agent**; fields **Name**, **Description**, **Category** (`General`), **Instructions**, **Model**. **Capabilities** are toggles: Run Code, Web Search, File Context, Artifacts, MCP Servers, Skills. **Add Tools** opens a catalogue of third-party integrations; subagents are under **Advanced settings**.
+- **Models:** "every Cloud customer gets Claude models (Sonnet and Haiku) wired in as the default model" (launch post).
+- **Availability:** "available to all ClickHouse Cloud customers in public beta" (launch post); the documentation says Beta.
+- **Sharing:** Viewer, Editor, Owner; the Share dialog; **Save Changes**; an organization-wide switch.
+- **Memory:** per user, key-value, the **Memories** icon, a **Use memory** checkbox, keys of lowercase letters and underscores.
+- **Managed Postgres:** an announcement says agents can link directly to a Managed Postgres instance, with access "read-only by default", and combine it with ClickHouse in one question. It gives no setup steps.
+
+**Not stated anywhere I could find** (so left as `TODO(owner)`): how an agent reaches the service's data and with which role; whether that is read-only for ClickHouse; trial availability; the name and place of the permission to create agents (the quickstart says "Admin Settings", the sharing page does not use that name); whose credentials a shared agent uses to read data; the contents of the **Prompts** library; the model dropdown's real options.
+
+### Findings while writing
+
+- **Prices are USD, not BRL** (D60): a comment in the frontend says so, and `i18n/config.ts` converts for display. Assuming the shop's currency from the Brazilian cards would have been wrong.
+- **The module 06 anomaly example overcounted** (D61), and the generator has a seventh anomaly kind the example never counted (a `card_bin` that contradicts the network). A future-dated anomaly stops being detectable once its time has passed.
+- **Real browser searches have an empty `se_property`**; generated ones have `text`. In `checkout_payment_confirmed`, a numeric `se_property` is a real order and a UUID a generated purchase. Only 85 of the 2,086 orders have a `domain_userid`, and only they join to the clickstream.
+- **`toUUID(se_property)` fails on the live service** (`CANNOT_PARSE_UUID`): `se_property` holds a category slug or a count on other events, and ClickHouse may evaluate the conversion before the `WHERE`. Two examples in `data-generators/README.md` and a comment in `20_clickstream.sql` used it and were wrong as written; they now use `toUUIDOrNull` (a test keeps it that way). The generator's own docstring still shows the old form: left alone, it is a code comment in an image's source.
+- **The shop's own card rows are labelled `BRL` but carry the order total in USD** (`bill_value` equals the purchase's `se_value` for about 96 % of them), and a frontend comment says `bill_value` is USD. The label is the inconsistency; the dictionary says not to convert. Whether to relabel them `USD` in the generator is the owner's call (not changed here: Phase 4).
+- **Seeded orders have a partial `shipping_addr`, storefront orders none.**
+- **Replicated JSON columns are text** (`attributes`, `address`, `shipping_addr`), and NULLs became `''` / `0`.
+- **Nothing is cancelled until module 08's gateway exercise has run**, so candidate question 9 depends on it.
+
+### For the owner: what to check in the console
+
+1. Is **ClickHouse agents** available in a trial organization, and on which plans?
+2. What is the exact permission that lets someone create agents, what is it called, and where does an admin grant it?
+3. **How does the agent reach the service's data?** A built-in tool, or a ClickHouse MCP server that has to be attached (under **MCP Servers** or **Add Tools**)? Note what has to be switched on.
+4. Which database user or role do the agent's queries run as, and does a shared agent run as its owner or as the person using it?
+5. Is the access read-only? (Ask an agent to create and drop a scratch table.)
+6. Where in a conversation can you see the SQL the agent ran?
+7. Which models does the dropdown offer, and which would you pick for this?
+8. Which **Capabilities** does the analyst need, and is **Web Search** off right?
+9. The exact labels of the Share dialog, including the organization-wide switch; is the marketplace worth mentioning?
+10. Is the **Prompts** library worth a step?
+11. Managed Postgres: how is the agent integration enabled, and does it belong in this module?
+12. How long does the module take, and how long may the Instructions be (or should the dictionary be attached as **File Context**)?
+
+### Not done
+
+- **The final instructions and questions**: to be written together with the owner (D59).
+- **Any step beyond the documentation**: nothing was run in the console.
+- **A check for this module**: there is none; the agent lives in the console.
