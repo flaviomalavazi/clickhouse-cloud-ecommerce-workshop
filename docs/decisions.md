@@ -58,6 +58,12 @@ and the change is written down below.
 | D48 | `notebooks/01_create_clickpipes.ipynb` makes the ClickPipe calls one at a time, in the setup order (migrate, create the pipe, seed). It imports `tools/clickpipes.py`, the code `make clickpipes` runs, so there is one implementation; `make notebook` runs it in JupyterLab in a container. | Confirmed |
 | D49 | `make backfill` **skips itself when the history is already there** (`tools/backfill_guard.py`: at least 100,000 events older than two days in `snowplow_events`); `make backfill FORCE=1` loads it anyway. The Job used to run every time, so a second `make setup` would have loaded every session twice, into the one kind of data that must never be emptied to retry. | Confirmed |
 | D50 | The ClickPipe commands treat as theirs **any pipe that copies the same Postgres host and database into the same ClickHouse database**, whatever its name (the console names it `clickpipe-<service>`, not `clickshop-cdc`). Without this, `make clickpipes` after module 03 by hand would create a second pipe writing into the same tables. `status` and `delete` without `--name` resolve the same way. | Confirmed |
+| D51 | **Agent mode is a separate source** (D8): `AGENTS.md` is the rulebook (read by Claude Code through `CLAUDE.md` → `@AGENTS.md`, and by Codex, Cursor, Copilot) and `agent-mode/NN-*.md` is one lesson plan per module, written for the agent. They share with the human modules only the executable truth: the `make` targets, `scripts/checks/check-NN.sh` and the SQL under `sql/`. A playbook never sends the agent to a `workshop/` README (a test enforces it). | Confirmed |
+| D52 | Agent mode has **two tracks**, asked once: the **fast track** (the participant does the console steps and the API key, the agent runs `make setup`, then tours modules 02 to 08) and the **guided track** (every module, step by step). Progress is a small gitignored `.workshop/progress.json` (schema in `agent-mode/README.md`), and the commands (`make check-NN`, `make status`) win when they disagree with it. | Confirmed |
+| D53 | `make ch-query` and `make pg-query` (`tools/query.py`) run SQL **without a prompt**, because an agent has no terminal and `make psql`, `make ch-client`, `make notebook` and `make logs` (which follows forever) are unusable to it. `FILE=<example.sql> N=<n>` runs the query numbered *n in the file's comments* (not the n-th statement: some numbers hold two), so playbooks refer to the example files instead of copying their SQL. | Confirmed |
+| D54 | **Drift control** is a test, `tools/test_agent_mode.py`: every `make` target, `check-NN`, repository path and numbered example query that `AGENTS.md`, the playbooks and the slash command name must exist; every playbook has its sections, numbered and tagged steps and a Step ids line that matches them; none tells the agent to run a command that needs a terminal. It was mutation-tested (a bad target, query number, section and tag are each caught). | Confirmed |
+| D55 | **No password-shaped literal in tests, docs or notebooks** (`tools/test_no_credential_literals.py`), after GitGuardian flagged a fixture password in `tools/test_clickpipes.py` (commit `de9c934`). Tests generate fake credentials at run time. That one file is on an accepted list, by the owner's decision, and the list is not to grow. | Confirmed |
+| D56 | The agent **asks before anything destructive** and never deletes Cloud resources (the participant does, in the console, in module 10's order). `make nuke-data` waits for a typed word, so the agent hands it to the participant. State an agent leaves behind is written to the progress file's `notes` (`test_order_id`, `card_gateway_broken`) so a later session cleans it up. | Confirmed |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -809,3 +815,30 @@ Run on the owner's service, on scratch resources, with the owner's pipe and sour
 - **Two gaps found by reading and fixed** (D49, D50): the backfill had no guard, and the pipe was recognised by name only (the owner's pipe is `clickpipe-workshop-devops-days`).
 - **`make setup` on a populated service** (everything but the two load-starting steps): **52 s**, exit 0, every step said it found what it needed: the pipe and the four sources "exist", the seed skipped, the history skipped, no pod restarted. This proves it can be repeated; it is **not** a first-run time. A first run needs an empty Cloud service, which has not been available. The "about ten minutes" in modules 01 and the README is the sum of parts measured earlier (cluster, images and application 2 min 23 s, backfill 1 min 34 s to 1 min 43 s, a pipe reaching Running 26 s plus one 60 s sync) with the images already built; building them from scratch (`make prefetch`) is separate and long.
 - **Still untested:** a first-ever `make setup` on an empty service; the ClickStack `connection` id on a service where ClickStack has never been opened; the notebook with a key.
+
+## Phase 8: agent mode
+
+### What was written
+
+- `AGENTS.md` (the rulebook: role, how to start or resume, ten golden rules, the ask-first table, how to run things, and a short section for agents that are working on the repository and not guiding) and `CLAUDE.md` (one line, `@AGENTS.md`).
+- `agent-mode/README.md` (the tracks, how to read a playbook, the tags, the progress file, how to talk to the participant, how to handle a failure, what maintainers must keep in step) and eleven playbooks, `00-prerequisites.md` to `10-cleanup.md`. Each has the sections Preconditions, Steps (numbered, with a step id and a tag), Talking points, Checkpoint, Failure playbook, **Fast track** and Exit criteria. The fast-track section is ours, not the plan's: it says what changes after `make setup`.
+- `.claude/commands/workshop.md` (`/workshop [module|fast|guided]`) and a pointer to agent mode in the root README. `.claude/settings.local.json` is gitignored.
+- `make ch-query` and `make pg-query` (D53), `tools/test_agent_mode.py` (D54) and `tools/test_no_credential_literals.py` (D55).
+
+### Verified
+
+- Every read-only `make ch-query` / `make pg-query` line in the playbooks (40) was run against the live service and answered; the `SHOW CREATE` lines too.
+- **Module 03's exercise was run exactly as its playbook gives it** (insert, update, delete a test order, polling ClickHouse): `pending`, then two versions, then a third row with `_peerdb_is_deleted = 1` and an empty status, `FINAL` empty after the delete; each sync arrived in about 38 s; the test order was deleted afterwards and `make check-03` passes.
+- The drift test and the credential guard each fail on a deliberate breakage and pass again when it is undone. `make test`: 212 + 11 + 21.
+
+### Findings while writing
+
+- **`assets/certs/` was not in the repository.** Module 01 says "the folder exists", but only the gitignored `.pem` was in it, so a fresh clone had no such folder. It now holds a `.gitkeep`, and the playbook runs `mkdir -p` as well.
+- **Statement numbers are not query numbers.** In two of the example files a numbered query is a pair of statements, so `--only N` means "what sits under the comment numbered N".
+- **A pod label is `deployment=<name>`, not `app=<name>`**, and the producers and the simulator exist as deployments only while they run.
+
+### Not done
+
+- **The `clickhousectl` recovery path** the plan marks as optional ("ask the owner first"): not built. `make setup` already is the recovery path for a participant short of time, and the console flow stays the teaching one.
+- **Nothing was run by an actual agent in guide mode.** The playbooks were checked against the system, not followed by one. That is Phase 10's dry run, with Claude Code and, if possible, a second agent.
+- **ClickHouse Agents (module 09)** stays a placeholder in both modes: Phase 9, with the owner.
