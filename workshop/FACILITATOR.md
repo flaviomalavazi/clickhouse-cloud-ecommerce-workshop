@@ -128,7 +128,7 @@ It prints `[n/13]` lines. Use each wait:
 |---|---|---|
 | `make prefetch` or any `make` command fails at once with `net_flags: unbound variable` | An old checkout, on macOS's bash 3.2 | `git pull`: fixed in Phase 10. |
 | Pods `Pending` or evicted, "no space left" | Docker's disk is nearly full (the cluster nodes keep their own copy of every image) | `docker system df`; `docker builder prune -f` is safe; keep 10 GB free. |
-| `make cluster` or `make doctor`: port 3000 in use | A local `npm run dev` or another app | Stop it. |
+| `make up` or `make doctor`: port 3000 in use | A local `npm run dev` or another app | Stop it. |
 | `make doctor`: `Postgres: could not connect` | The instance is still starting, or **IP access** does not allow the laptop (or the venue's address changed) | Check the instance's **IP access**; test 5432 from the network. |
 | `certificate verify failed` or `PGSSLROOTCERT ... was not found` | The wrong file, or a path that is not relative to the repository root | `assets/certs/ca-certificate.pem`. |
 | `Cloud API ... 401` or `403` | The API key is wrong or is not an Admin key | Create it again (module 01, step 6). |
@@ -137,7 +137,7 @@ It prints `[n/13]` lines. Use each wait:
 | `check-07` or `check-08`: no order of a payment method, no traces from a service | The shoppers have not run long enough | About ten minutes. |
 | **Every card payment fails on a new cluster** | `CARD_GATEWAY_DOWN=true` is in `.env` (the gateway reads it from there) | `make doctor` warns about it. Remove the line, and `make apply-env` if the cluster is running. (`make fix-card-gateway` works until the cluster is recreated.) |
 | Search finds nothing, or shows the old stock | `products_search` is rebuilt every five minutes | `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh` then `SYSTEM WAIT VIEW ...` (the first only starts it). |
-| The dashboard's "right now" tiles, or a "last hour" question, are empty | The load is stopped | `make generators-start` and `make sim-start USERS=4`. |
+| The dashboard's "right now" tiles, or a "last hour" question, are empty | The load is stopped | `make traffic-start`. |
 | A notice about "the legacy builder" during builds | Docker without the buildx plugin | Harmless. |
 | Events do not arrive in the dashboard, and `make logs S=snowplow-micro` shows schema errors | Snowplow Micro cannot reach Iglu Central (the venue's network) | Allow it, or move network. (Likely cause; not reproduced.) |
 | The ClickPipe is in an error state | Usually IP access, or the pooler address was used | Its page in the console shows the message. |
@@ -148,7 +148,7 @@ It prints `[n/13]` lines. Use each wait:
 
 1. `make traffic-stop` (it says "nothing to stop" if nothing runs).
 2. `make nuke-data`, in the participant's own terminal (it waits for a typed word): Postgres is reseeded, the replica in ClickHouse is emptied and refills through the pipe, and the shoppers stop. **Events and telemetry are not touched on purpose** (they are slow to fill again), so the dashboards still show the previous group's history, and `make backfill` refuses to load it twice.
-3. `make down` if the local cluster should go too; `make cluster images secrets app` brings it back in about two minutes.
+3. `make down` if the local cluster should go too; `make up` brings it back in about two minutes (`make start` brings back the generators and the shoppers too).
 4. Agent mode: delete `.workshop/progress.json`. In the console, delete the agent and its memories from module 09 if you want them gone.
 
 **Fresh services (full reset).** [Module 10](10-cleanup/README.md), in its order: the ClickPipe, then the Postgres instance, then the ClickHouse service, then the API key; then `rm .env assets/certs/*.pem`.

@@ -46,7 +46,7 @@ You are the participant's **workshop guide**. They follow along and **do not wri
 - Work from the repository root. `make help` lists every command; the playbooks name the ones to use.
 - **SQL:** use `make ch-query Q="SELECT 1"` for ClickHouse and `make pg-query Q="SELECT 1"` for Postgres. Put the SQL in **double quotes** when it contains single quotes (it usually does: `Q="SELECT 'x'"`). To run a numbered query of an example file: `make ch-query FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2`. Do **not** use `make psql`, `make ch-client` or `make notebook`: they need a terminal you do not have.
 - **Logs:** `make logs` follows forever. Use `deploy/bin/kubectl -n clickshop logs deploy/<name> --tail=40` (a Job such as the backfill: `job/backfill`). The same wrapper runs `kubectl` for every other need, and `deploy/bin/helm` runs `helm`.
-- **Long commands** (`make prefetch` about 5 minutes, `make clickpipes` and `make clickpipes-wait` usually under 2 but up to 15, `make setup` about 10, `make backfill` 2, `make cluster images secrets app` 3): if your shell tool has a time limit, run them in the background and poll the log. Literally:
+- **Long commands** (`make prefetch` about 5 minutes, `make clickpipes` and `make clickpipes-wait` usually under 2 but up to 15, `make setup` about 10, `make backfill` 2, `make up` 3): if your shell tool has a time limit, run them in the background and poll the log. Literally:
 
   ```bash
   mkdir -p .workshop/logs

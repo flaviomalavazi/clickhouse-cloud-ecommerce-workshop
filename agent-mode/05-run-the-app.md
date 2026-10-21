@@ -25,10 +25,10 @@ If it lists the pods in `clickshop` as `Running`, skip step 1.
 ### 1. `start-app` [AGENT RUNS] Start the cluster and the application
 
 ```bash
-make cluster images secrets app
+make up
 ```
 
-About 2 to 3 minutes; run it in the background and use the wait for the talking points. Say what each part does:
+`make up` is `make cluster images secrets app` in one command. About 2 to 3 minutes; run it in the background and use the wait for the talking points. Say what each part does:
 
 | Command | What it does |
 |---|---|
@@ -114,7 +114,7 @@ make check-05
 - **What runs where:** the application, the generators and the simulator on the laptop (Kubernetes in Docker); the database, search and observability in ClickHouse Cloud. The app talks to both clouds over TLS.
 - **One write, three destinations:** a Postgres transaction is the source; ClickHouse gets it through CDC (a minute); search gets it through the refreshable view (up to five more). Each hop has a number, and the participant just measured them.
 - **Why the order is `confirmed`:** the app inserts then confirms within seconds; CDC delivers the changes batched, so the analytical side sees the end state. Know which questions can only be answered from the transactional side.
-- **Looking around Kubernetes:** nodes, pods, services, ingress. The cluster is disposable: `make down` and `make cluster images secrets app` bring it back in minutes.
+- **Looking around Kubernetes:** nodes, pods, services, ingress. The cluster is disposable: `make down` and `make up` bring it back in minutes.
 
 ## Checkpoint
 
@@ -124,7 +124,7 @@ make check-05
 
 | Symptom | Diagnose | Fix |
 |---|---|---|
-| `make cluster` says port 3000 is in use | `lsof -i :3000` | They stop what uses it; then (with their ok) `make down` and `make cluster` again. |
+| `make cluster` says port 3000 is in use | `lsof -i :3000` | They stop what uses it; then (with their ok) `make down` and `make up` again. |
 | Pods stay `ImagePullBackOff` | `deploy/bin/kubectl get pods -n clickshop` | The images were not loaded: `make images`. |
 | `make app` times out | `make status` shows which pods are not ready; `deploy/bin/kubectl -n clickshop logs deploy/<pod> --tail=40` says why | A frontend that cannot reach Postgres or ClickHouse is the usual cause: `make doctor`. |
 | The storefront shows an error page | `deploy/bin/kubectl -n clickshop logs deploy/frontend --tail=40` | Read the error; usually the databases (`make doctor`). |

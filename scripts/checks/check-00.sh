@@ -29,7 +29,7 @@ check "the collector chart is downloaded" test -f "$REPO/.workshop/charts/opente
 if docker ps --format '{{.Names}}' | grep -qx "k3d-clickshop-serverlb" || ! (exec 3<>/dev/tcp/127.0.0.1/3000) 2>/dev/null; then
   pass "port 3000 is free (or already the clickshop cluster's)"
 else
-  fail "port 3000 is in use: stop whatever listens on it before make cluster"
+  fail "port 3000 is in use: stop whatever listens on it before make up"
 fi
 [ "$failures" -gt 0 ] && echo "  (the downloads and builds are one command: make prefetch)"
 finish

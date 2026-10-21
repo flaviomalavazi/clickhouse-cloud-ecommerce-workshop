@@ -17,7 +17,7 @@
 
 ### 1. Start the shoppers
 
-If you ran `make setup` they are already running (four browsers): go to step 2.
+If you ran `make setup` they are already running (four browsers): go to step 2. (`make traffic-start` starts them together with module 06's generators.)
 
 ```bash
 make sim-start USERS=4

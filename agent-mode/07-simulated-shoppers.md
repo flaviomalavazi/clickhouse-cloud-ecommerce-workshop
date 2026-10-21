@@ -18,6 +18,8 @@ It must pass. The generators may keep running; the simulator does not need them.
 
 ### 1. `start-shoppers` [AGENT RUNS] Start the shoppers
 
+(`make traffic-start` starts them together with module 06's generators.)
+
 Skip if they are running already (the fast track's `make setup` starts them; check with `deploy/bin/kubectl -n clickshop get deploy simulator`: `READY 1/1` means running, `NotFound` means not).
 
 ```bash

@@ -33,7 +33,7 @@ STEPS=(
   "sync|Wait for the pipe to bring the data into retail_oltp|make clickpipes-wait"
   "search|Build product search (the text index and its refreshable view)|make ch-search"
   "rollups|Create the real-time rollups (materialized views)|make ch-mvs"
-  "app|Start the Kubernetes cluster and the application|make cluster images secrets app"
+  "app|Start the Kubernetes cluster and the application|make up"
   "clickstack|Create the ClickStack sources through the Cloud API|make clickstack-setup"
   "backfill|Load 30 days of history into ClickHouse (skipped if it is there)|make backfill"
   "generators|Start the live traffic generators|make generators-start"
@@ -94,7 +94,7 @@ if [ -n "$DRY" ]; then exit 0; fi
 echo
 echo "  The storefront:   http://localhost:3000        The dashboard: http://localhost:3000/demo/analytics"
 echo "  Check any module: make check-NN                Where things stand: make status"
-echo "  Stop the load:    make traffic-stop            Start it again: make generators-start, make sim-start"
+echo "  Stop the load:    make traffic-stop            Start it again: make traffic-start"
 for name in "${todo[@]+"${todo[@]}"}"; do
   case $name in
     clickstack) echo; echo "  To do by hand: the ClickStack sources. Open ClickStack from your service in the console once, then run"

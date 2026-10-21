@@ -20,6 +20,7 @@ Everything is configured in the **root `.env`** and started with `make`. The wor
 | load 30 days of history (5 million events, about 1½ minutes; skipped if it is already there, `FORCE=1` loads it again) | `make backfill` |
 | start the live generators | `make generators-start` |
 | start browser shoppers (4 by default) | `make sim-start USERS=4` |
+| start both at once | `make traffic-start` (`USERS=4` sets the shoppers) |
 | stop one, or everything | `make generators-stop`, `make sim-stop`, `make traffic-stop` |
 | watch one | `make logs S=producer-web`, `S=producer-cc`, `S=simulator` |
 | change a rate | edit `.env`, then `make apply-env` |

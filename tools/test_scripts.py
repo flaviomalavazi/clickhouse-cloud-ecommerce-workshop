@@ -125,12 +125,24 @@ def test_the_stop_commands_succeed_when_there_is_nothing_to_stop():
 
 def test_the_guards_say_what_to_run():
     recipe_cluster, recipe_app = makefile_rules()["need-cluster"][1], makefile_rules()["need-app"][1]
-    assert "make cluster images secrets app" in recipe_cluster and "make setup" in recipe_cluster
-    assert "make secrets app" in recipe_app
+    assert "make up" in recipe_cluster and "make setup" in recipe_cluster
+    assert "make up" in recipe_app
 
 
 def test_the_check_scripts_stop_with_one_line_when_there_is_no_cluster():
     lib = (ROOT / "scripts" / "checks" / "lib.sh").read_text()
-    assert "need_cluster()" in lib and "make cluster images secrets app" in lib
+    assert "need_cluster()" in lib and "make up" in lib
     for number in ("05", "06"):
         assert "need_cluster" in (ROOT / "scripts" / "checks" / f"check-{number}.sh").read_text(), f"check-{number} must call need_cluster"
+
+
+def test_the_one_command_starts_run_what_their_long_forms_run():
+    rules = makefile_rules()
+    up, traffic, start = (rules[n][1] for n in ("up", "traffic-start", "start"))
+    assert "cluster images secrets app" in up, "make up is make cluster images secrets app"
+    assert "generators-start sim-start" in traffic, "make traffic-start starts both kinds of load"
+    assert "up traffic-start" in start, "make start is make up, then make traffic-start"
+    assert "need-app" in rules["traffic-start"][0], "starting the load without the application should fail with one line"
+    # The existing long forms keep working: the modules still teach them one by one.
+    for name in ("cluster", "images", "secrets", "app", "generators-start", "sim-start", "traffic-stop"):
+        assert name in rules

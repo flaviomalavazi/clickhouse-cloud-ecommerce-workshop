@@ -128,7 +128,7 @@ containerd_name() {
   esac
 }
 all_nodes=$(docker ps --filter label=k3d.cluster=clickshop --format '{{.Names}}' | grep -E '^k3d-clickshop-(server|agent)-[0-9]+$' || true)
-[ -n "$all_nodes" ] || { echo "ERROR: the cluster has no running nodes. Run: make cluster" >&2; exit 1; }
+[ -n "$all_nodes" ] || { echo "ERROR: the cluster has no running nodes. Run: make up" >&2; exit 1; }
 # The node that already has the simulator image (a rebuild replaces it there), or the first agent.
 simulator_node=$(deploy/bin/kubectl get nodes -l clickshop/simulator-image=present -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
 [ -n "$simulator_node" ] || simulator_node=$(printf '%s\n' "$all_nodes" | grep -E -- '-agent-[0-9]+$' | sort | head -1)

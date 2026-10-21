@@ -15,7 +15,7 @@ make check-08
 make status
 ```
 
-`check-08` should pass (do not hold the participant back if it does not). Questions about "the last hour" need traffic: if `make status` shows the clickstream tables are old, `make generators-start` and `make sim-start USERS=4` (the fast track's `make setup` already left them running).
+`check-08` should pass (do not hold the participant back if it does not). Questions about "the last hour" need traffic: if `make status` shows the clickstream tables are old, `make traffic-start` (the fast track's `make setup` already left them running).
 
 ## Steps
 
@@ -103,7 +103,7 @@ There is no automated check for this module: the agent lives in the console. The
 | There is no **Create New Agent** | Ask what the Agent Builder shows | They need the **Create agent** option: an organization admin grants it. |
 | The agent says it cannot reach the data | `make doctor` confirms the service itself is fine | Its tools are not set up for the service: look at **Capabilities** and **Add Tools** (step 5). After two attempts, step 10. |
 | Its numbers differ from `make ch-query` | Compare its SQL with yours | The usual causes: no `FINAL` or no `_peerdb_is_deleted = 0` on `retail_oltp`; inactive products counted; `bill_value` summed across currencies; negative card amounts counted on chargebacks; another time window. |
-| It finds nothing for "the last hour" | `make status` shows how old each table is | The load is stopped: `make generators-start` and `make sim-start USERS=4`. |
+| It finds nothing for "the last hour" | `make status` shows how old each table is | The load is stopped: `make traffic-start`. |
 | Question 9 (card payment failures) shows nothing | `make ch-query Q="SELECT ServiceName, count() FROM retail_otel.otel_traces WHERE StatusCode = 'Error' AND Timestamp > now() - INTERVAL 1 HOUR GROUP BY ServiceName"` | There is nothing to find until the card gateway fails: module 08's exercise. That is not an error. A card failure leaves no order, so do not look for cancelled orders. |
 
 ## Fast track

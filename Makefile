@@ -28,7 +28,7 @@ TOOLS_TTY := docker run --rm -it --env-file .env -v "$(CURDIR)":/workspace:ro $(
 .DEFAULT_GOAL := help
 .PHONY: help check-env tools-image doctor prefetch cluster images secrets apply-env app otel-k8s setup notebook \
         pg-setup pg-migrate pg-seed pg-reset psql ch-query pg-query clickpipes clickpipes-status clickpipes-wait clickpipes-delete clickstack-setup clickstack-list ch-bootstrap ch-search ch-mvs ch-client \
-        need-cluster need-app cloud-ids generators-start generators-stop backfill backfill-run sim-start sim-stop traffic-stop \
+        need-cluster need-app cloud-ids up start traffic-start generators-start generators-stop backfill backfill-run sim-start sim-stop traffic-stop \
         break-card-gateway fix-card-gateway status logs down nuke-data \
         test images-webp dev-frontend
 
@@ -145,10 +145,10 @@ CLUSTER_UP   := docker inspect -f '{{.State.Running}}' $(CLUSTER_NODE) 2>/dev/nu
 APP_UP       := $(CLUSTER_UP) && $(HELM) status clickshop -n $(NS) >/dev/null 2>&1
 
 need-cluster:
-	@$(CLUSTER_UP) || { echo "ERROR: the local cluster is not running. Create it with:  make cluster images secrets app  (module 05), or run  make setup"; exit 1; }
+	@$(CLUSTER_UP) || { echo "ERROR: the local cluster is not running. Create it with:  make up  (module 05), or run  make setup"; exit 1; }
 
 need-app: need-cluster
-	@$(HELM) status clickshop -n $(NS) >/dev/null 2>&1 || { echo "ERROR: the application is not installed in the cluster. Install it with:  make secrets app  (module 05), or run  make setup"; exit 1; }
+	@$(HELM) status clickshop -n $(NS) >/dev/null 2>&1 || { echo "ERROR: the application is not installed in the cluster. Install it with:  make up  (module 05), or run  make setup"; exit 1; }
 
 cluster: ## Create the k3d cluster (1 server, 2 agents; the storefront is on localhost:3000)
 	@deploy/cluster.sh up
@@ -175,6 +175,9 @@ otel-k8s: need-cluster $(OTEL_CHART) ## Install the two Kubernetes collectors (n
 	@$(HELM) upgrade --install k8s-otel-deployment $(OTEL_CHART) -f deploy/helm/otel-k8s/cluster.values.yaml \
 	  -n observability --wait --timeout 5m >/dev/null
 	@echo "Kubernetes collectors running in namespace observability"
+
+up: ## Start the local cluster and the application in one go: cluster, images, secrets, app (module 05)
+	@$(MAKE) --no-print-directory cluster images secrets app
 
 app: need-cluster ## Install or upgrade the application and the Kubernetes collectors
 	@$(HELM) upgrade --install clickshop $(APP_CHART) -n $(NS) --create-namespace \
@@ -218,6 +221,12 @@ sim-stop: ## Stop the simulated shoppers
 	  && echo "simulator stopped"; \
 	else echo "nothing to stop: the application is not running"; fi
 
+traffic-start: need-app ## Start all the load at once: the live generators and the simulated shoppers (make traffic-start USERS=4)
+	@$(MAKE) --no-print-directory generators-start sim-start
+
+start: ## Everything local in one go: the cluster and the application, then the generators and the shoppers (make start USERS=4)
+	@$(MAKE) --no-print-directory up traffic-start
+
 traffic-stop: ## Stop all the load at once: the live generators and the simulated shoppers
 	@if $(APP_UP); then \
 	  $(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values --set producers.enabled=false --set simulator.enabled=false --wait >/dev/null \
@@ -237,7 +246,7 @@ fix-card-gateway: need-app ## Bring the card gateway back
 
 # ── Operations ───────────────────────────────────────────────────────────────
 status: check-env tools-image ## Pods, then row counts and freshness of the workshop tables
-	@$(KUBECTL) get pods -n $(NS) -o wide 2>/dev/null || echo "no cluster: run make cluster"
+	@$(KUBECTL) get pods -n $(NS) -o wide 2>/dev/null || echo "no cluster: run make up"
 	@$(KUBECTL) get pods -n observability 2>/dev/null || true
 	@echo
 	@$(TOOLS_RUN) python /app/tools/status.py

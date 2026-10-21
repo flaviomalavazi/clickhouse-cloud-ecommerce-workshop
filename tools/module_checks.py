@@ -169,7 +169,7 @@ def check_06(c: Checker) -> None:
     cards = q("SELECT count() FROM retail_analytics.credit_card_transactions")[0][0]
     c.ok(cards > 0, f"{cards:,} card transactions", "no card transactions: run make backfill")
     age = q("SELECT dateDiff('second', maxIf(collector_tstamp, collector_tstamp <= now()), now()) FROM retail_analytics.snowplow_events")[0][0]
-    c.ok(age < 300, f"events are arriving (newest {age} s ago)", f"the newest event is {age // 60} min old: run make generators-start")
+    c.ok(age < 300, f"events are arriving (newest {age} s ago)", f"the newest event is {age // 60} min old: run make traffic-start")
 
 
 def check_07(c: Checker) -> None:

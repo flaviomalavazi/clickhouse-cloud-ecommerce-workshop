@@ -40,6 +40,8 @@ A Kubernetes **Job** writes 30 days of history: about **5 million events**, plus
 
 ### 3. `start-generators` [AGENT RUNS] The live generators
 
+(`make traffic-start` starts these and module 07's shoppers together, if they want both.)
+
 ```bash
 make generators-start
 deploy/bin/kubectl -n clickshop logs deploy/producer-web --tail=15

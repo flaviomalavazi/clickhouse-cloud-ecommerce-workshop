@@ -63,7 +63,7 @@ echo "Ports"
 if docker ps --format '{{.Names}}' | grep -qx "k3d-${CLUSTER_NAME:-clickshop}-serverlb"; then
   ok "port 3000 is the clickshop cluster's (already created)"
 elif (exec 3<>/dev/tcp/127.0.0.1/3000) 2>/dev/null; then
-  bad "port 3000 is in use: stop whatever listens on it (a local 'npm run dev'?) before 'make cluster'"
+  bad "port 3000 is in use: stop whatever listens on it (a local 'npm run dev'?) before 'make up'"
 else
   ok "port 3000 is free"
 fi
