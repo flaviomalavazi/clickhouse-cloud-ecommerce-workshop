@@ -48,11 +48,14 @@ WHERE database = 'retail_analytics' AND active AND table IN ('snowplow_events', 
 GROUP BY table;
 
 -- 5. Card transaction anomalies. A small share of transactions are corrupted in
---    exactly one field; each check below finds one kind.
+--    exactly one field; each check below finds one kind. Negative amounts are counted
+--    on expenses only: chargebacks are negative by design. (The background traffic
+--    also has some negative expenses that were not injected, so that column reads a
+--    little high; the shop's own `merchant_name = 'ClickShop'` rows are exact.)
 SELECT
     countIf(merchant_name IS NULL)                                AS missing_merchant,
     countIf(card_holder IS NULL)                                  AS missing_card_holder,
-    countIf(bill_value < 0)                                       AS negative_amount,
+    countIf(bill_value < 0 AND type = 'expense')                  AS negative_amount,
     countIf(installments = 0)                                     AS zero_installments,
     countIf(card_network NOT IN ('Visa', 'Mastercard', 'Elo', 'Amex')) AS unknown_network,
     countIf(timestamp > now())                                    AS dated_in_the_future,
@@ -62,7 +65,7 @@ FROM retail_analytics.credit_card_transactions;
 -- 6. The anomalous rows themselves.
 SELECT transaction_id, timestamp, merchant_name, bill_value, installments, card_network
 FROM retail_analytics.credit_card_transactions
-WHERE merchant_name IS NULL OR card_holder IS NULL OR bill_value < 0 OR installments = 0
+WHERE merchant_name IS NULL OR card_holder IS NULL OR (bill_value < 0 AND type = 'expense') OR installments = 0
    OR card_network NOT IN ('Visa', 'Mastercard', 'Elo', 'Amex') OR timestamp > now()
 ORDER BY timestamp DESC
 LIMIT 10;

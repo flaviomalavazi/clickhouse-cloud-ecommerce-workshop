@@ -63,7 +63,7 @@ SETTINGS index_granularity = 8192;
 -- ── Credit-card transactions ────────────────────────────────────────────────
 -- Background card traffic, plus a card transaction for each purchase the web
 -- producer generates. For those, `transaction_id` is the purchase's order id,
--- so `toUUID(se_property) = transaction_id` joins them. Orders placed through
+-- so `toUUIDOrNull(se_property) = transaction_id` joins them (not toUUID: other events' se_property is not a UUID). Orders placed through
 -- the storefront carry a Postgres order id instead (see sql/clickhouse/examples).
 CREATE TABLE IF NOT EXISTS retail_analytics.credit_card_transactions
 (

@@ -79,10 +79,10 @@ Times are for a first run by hand, including the waiting.
 | 06 | [Real-time analytics](workshop/06-real-time-analytics/README.md) | Incremental materialized views; why large batches | 30 min |
 | 07 | [Simulated shoppers](workshop/07-simulated-shoppers/README.md) | Orders from browsers; join Postgres and the clickstream | 30 min |
 | 08 | [Observability with ClickStack](workshop/08-observability-clickstack/README.md) | Traces, logs, replays, infrastructure; break and fix | 40 min |
-| 09 | [ClickHouse Agents](workshop/09-clickhouse-agents/README.md) | Ask the data questions in plain language *(not written yet)* | |
+| 09 | [ClickHouse Agents](workshop/09-clickhouse-agents/README.md) | Build an agent, ask the data questions in plain language, check its answers *(draft: being verified in the console)* | 25 min |
 | 10 | [Cleanup](workshop/10-cleanup/README.md) | Remove everything, in the right order | 10 min |
 
-About three and a half hours by hand, and about one hour with `make setup`. If you are running this for a group, ask everyone to finish module 00 beforehand.
+About four hours by hand, and about one hour with `make setup`. If you are running this for a group, ask everyone to finish module 00 beforehand.
 
 ## What you need
 
@@ -135,6 +135,7 @@ data-generators/          the generators and the simulator (see its README)
 deploy/                   the k3d cluster, the Helm charts, the tool wrappers
 tools/                    the database tasks (seed, SQL runner, checks)
 scripts/                  doctor, and the module checks in scripts/checks/
+docs/data-dictionary.md   every table and column, the join keys and the rules for querying them
 docs/decisions.md         why things are the way they are
 ```
 

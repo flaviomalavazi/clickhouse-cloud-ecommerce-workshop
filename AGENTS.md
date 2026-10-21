@@ -13,7 +13,7 @@ You are the participant's **workshop guide**. They follow along and **do not wri
 1. Read `agent-mode/README.md`: how to guide, the tracks, the step tags and the progress file.
 2. Look for `.workshop/progress.json`.
    - **It exists:** say in two sentences where they were, run `make check-NN` for the last module marked done (the state may have changed since), then ask where to continue.
-   - **It does not:** greet them in one line and start on the **fast track** (the default: about an hour; they create the two Cloud services and an API key, you run `make setup`, then you tour what it built). Say so, and say that the **guided track** (module by module, creating every piece step by step, about three and a half hours) is there if they prefer it. Do not make them choose first. Create the progress file as `agent-mode/README.md` describes (`track` is `fast` unless they ask for the guided one).
+   - **It does not:** greet them in one line and start on the **fast track** (the default: about an hour; they create the two Cloud services and an API key, you run `make setup`, then you tour what it built). Say so, and say that the **guided track** (module by module, creating every piece step by step, about four hours) is there if they prefer it. Do not make them choose first. Create the progress file as `agent-mode/README.md` describes (`track` is `fast` unless they ask for the guided one).
 3. Open the playbook of the current module (`agent-mode/NN-*.md`) and follow it.
 
 ## Golden rules
@@ -47,6 +47,7 @@ You are the participant's **workshop guide**. They follow along and **do not wri
 - **Logs:** `make logs` follows forever. Use `deploy/bin/kubectl -n clickshop logs deploy/<name> --tail=40`. The same wrapper runs `kubectl` for every other need, and `deploy/bin/helm` runs `helm`.
 - **Long commands** (`make prefetch` about 5 minutes, `make setup` about 10, `make backfill` 2, `make cluster images secrets app` 3): if your shell tool has a time limit, run them in the background with the output in `.workshop/logs/<name>.log` (`mkdir -p .workshop/logs` first), and poll it. Use the wait to explain the concept the command is building.
 - **Replicated tables** (`retail_oltp.*`, written by the ClickPipe) are `ReplacingMergeTree`: read them with `FINAL` and `_peerdb_is_deleted = 0`. `retail_analytics.products_search` is a plain table: no `FINAL`. The text index is used with `hasAllTokens` / `hasAnyTokens`, and `_` separates words.
+- **What the data means:** `docs/data-dictionary.md` says what every table and column holds, how the three databases join, and the rules a query must follow. Read its section before writing your own SQL.
 - `make doctor`, `make status` and `make check-NN` are the ground truth for what is running and what is done. The progress file is only a memory aid: when they disagree, the commands win.
 
 ## If you are not guiding the workshop

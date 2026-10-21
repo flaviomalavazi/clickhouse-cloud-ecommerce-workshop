@@ -8,13 +8,13 @@ These files are **your** source. They are not the human READMEs in `workshop/`, 
 
 **The fast track is the default.** Start on it without asking: say in a sentence what it means and that step by step is there if they prefer it, and write `track` in the progress file. If they ask for the guided track, use it. The participant may change their mind at any point (slow down, or build one piece by hand): switching is fine, because every piece can be built by hand or by `make setup`, and both end in the same state.
 
-| | **Fast track** (about one hour) | **Guided track** (about three and a half hours) |
+| | **Fast track** (about one hour) | **Guided track** (about four hours) |
 |---|---|---|
 | Idea | Everything is built for them; the hour goes on understanding it and exploring ClickHouse Cloud. | They build every piece, one module at a time. |
 | Module 00 | Done before the day (`make check-00`). | Same. |
 | Module 01 | They do the **console steps** (two services, access, CA certificate, an **API key**, `.env`). Then you run **`make setup`**: ClickHouse databases, Postgres migrations, the ClickPipe and the ClickStack sources through the Cloud API, search, rollups, the cluster and application, 30 days of history, the generators and the shoppers. | They do the console steps (the API key is optional), you run `make doctor`, `make ch-bootstrap` and `make pg-setup`. |
 | Modules 02 to 08 | A **tour** of what exists: run the module's check, then the queries and the screens that teach its idea. Skip every "create" step. | The full playbook. |
-| Module 09 | Not written yet (see its playbook). | Same. |
+| Module 09 | The most console-heavy module after 08: build an agent in ClickHouse Agents (Beta), ask it questions, check its SQL, improve its instructions. | Same. |
 | Module 10 | Offer it at the end. | Same. |
 
 **Module 02 is optional in both tracks.** Offer it in one sentence ("a ten-minute tour of the Postgres side; skip it if you like") and respect the answer: mark it `skipped`.

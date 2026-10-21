@@ -96,11 +96,11 @@ For a **generated** purchase, `checkout_payment_confirmed.se_property` is an ord
 ```sql
 SELECT e.domain_sessionid, e.se_value AS order_total, t.bill_value, t.card_network, t.installments, t.type
 FROM       retail_analytics.snowplow_events          AS e
-INNER JOIN retail_analytics.credit_card_transactions AS t ON t.transaction_id = toUUID(e.se_property)
+INNER JOIN retail_analytics.credit_card_transactions AS t ON t.transaction_id = toUUIDOrNull(e.se_property)
 WHERE e.event_name = 'checkout_payment_confirmed' AND t.merchant_name = 'ClickShop';
 ```
 
-`merchant_name = 'ClickShop'` is reserved for storefront orders; every other merchant is background traffic from the card producer. A Pix or Boleto purchase has no transaction row, deliberately.
+Use `toUUIDOrNull`, not `toUUID`: `se_property` holds a category slug or a count on other events, and ClickHouse may evaluate the conversion before the `WHERE`, which fails with `CANNOT_PARSE_UUID`. `merchant_name = 'ClickShop'` is reserved for storefront orders; every other merchant is background traffic from the card producer. A Pix or Boleto purchase has no transaction row, deliberately.
 
 For a **real** (simulated-browser) order, `se_property` is the **Postgres order id**, which is what joins it to `retail_oltp.orders` (module 07):
 
@@ -260,7 +260,7 @@ WHERE collector_tstamp > now() - INTERVAL 7 DAY GROUP BY hour ORDER BY hour;
 
 -- card payments reconcile to purchases (generated ones)
 SELECT count() FROM retail_analytics.snowplow_events AS e
-INNER JOIN retail_analytics.credit_card_transactions AS t ON t.transaction_id = toUUID(e.se_property)
+INNER JOIN retail_analytics.credit_card_transactions AS t ON t.transaction_id = toUUIDOrNull(e.se_property)
 WHERE e.event_name = 'checkout_payment_confirmed';
 
 -- the inserts are large (rows per active part)

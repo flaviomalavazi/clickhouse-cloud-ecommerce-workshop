@@ -25,7 +25,9 @@ SECTIONS = ["## Preconditions", "## Steps", "## Talking points", "## Checkpoint"
 NEEDS_A_TERMINAL = {"psql", "ch-client", "notebook", "logs"}
 # Paths a participant creates on their machine: named in the texts, never in the repository.
 CREATED_BY_THE_PARTICIPANT = {"assets/certs/ca-certificate.pem"}
-PATH_ROOTS = ("sql", "deploy", "scripts", "tools", "docs", "agent-mode", "assets", "notebooks", ".claude", "frontend", "data-generators")
+# Written for the participant, used by both modes: the agent a participant builds in module 09.
+SHARED_ASSETS = "workshop/09-clickhouse-agents/agents/"
+PATH_ROOTS = ("workshop", "sql", "deploy", "scripts", "tools", "docs", "agent-mode", "assets", "notebooks", ".claude", "frontend", "data-generators")
 
 
 def text_of(path):
@@ -150,7 +152,9 @@ def test_a_playbook_never_tells_the_agent_to_run_what_needs_a_terminal(playbook)
 @pytest.mark.parametrize("playbook", PLAYBOOKS, ids=lambda p: p.name)
 def test_a_playbook_is_its_own_source_and_does_not_send_the_agent_to_the_human_modules(playbook):
     text = text_of(playbook)
-    assert not re.search(r"(?<![\w.])workshop/", text), "agent mode does not read workshop/*/README.md (.workshop/ is the progress folder)"
+    # The shared agent assets (the agent's instructions and questions) live next to module 09; nothing else under workshop/ is read.
+    named = [m for m in re.findall(r"(?<![\w.])workshop/[^\s`)\"']*", text) if not m.startswith(SHARED_ASSETS)]
+    assert not named, f"agent mode does not read the human modules (.workshop/ is the progress folder): {named}"
 
 
 @pytest.mark.parametrize("playbook", [p for p in PLAYBOOKS if not p.name.startswith("09")], ids=lambda p: p.name)
