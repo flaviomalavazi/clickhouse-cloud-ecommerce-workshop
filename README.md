@@ -1,5 +1,7 @@
 # ClickShop: from zero to a real-time application on ClickHouse Cloud
 
+**Language:** English · [Español](README.es.md)
+
 A hands-on workshop. You start with an empty ClickHouse Cloud account and finish with an online shop whose orders, searches, clicks and traces all live in ClickHouse, and with a running idea of what each part is for.
 
 You will:
