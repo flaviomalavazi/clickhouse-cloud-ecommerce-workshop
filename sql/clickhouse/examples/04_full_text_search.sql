@@ -48,4 +48,4 @@ FROM system.view_refreshes
 WHERE database = 'retail_analytics';
 
 -- Run this, then re-run query 1 of examples/05_run_the_app.sql to see a change at once:
--- SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
+-- SYSTEM REFRESH VIEW retail_analytics.products_search_refresh; SYSTEM WAIT VIEW retail_analytics.products_search_refresh;

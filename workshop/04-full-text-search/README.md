@@ -43,15 +43,16 @@ This applies `sql/clickhouse/10_products_search.sql`. Open the file and read it;
 
   Every five minutes it reruns the query over the replicated Postgres tables and replaces the contents of `products_search` atomically. Postgres stays the only source of truth for the catalogue, and stock levels show up in search without any code of ours doing the copy.
 
-Force the first build instead of waiting up to five minutes:
+Force the first build instead of waiting up to five minutes (in the SQL console, or `make ch-query Q="SYSTEM REFRESH VIEW retail_analytics.products_search_refresh; SYSTEM WAIT VIEW retail_analytics.products_search_refresh"`; the first only starts the refresh, the second waits until it has finished):
 
 ```sql
 SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
+SYSTEM WAIT VIEW retail_analytics.products_search_refresh;
 ```
 
 ### 2. Search
 
-Run the queries in `sql/clickhouse/examples/04_full_text_search.sql` in the SQL console or `make ch-client`. The ones to try first:
+Run the queries in `sql/clickhouse/examples/04_full_text_search.sql` in the SQL console, or one at a time from your terminal: `make ch-query FILE=sql/clickhouse/examples/04_full_text_search.sql N=1`, then `N=2`, and so on. The ones to try first:
 
 ```sql
 -- all of the words must appear
@@ -109,7 +110,7 @@ make check-04
 
 | Symptom | Fix |
 |---|---|
-| `products_search` is empty | The view has not run yet: `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;`. If it stays empty, `retail_oltp.products` is empty: go back to module 03. |
+| `products_search` is empty | The view has not run yet: `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;` then `SYSTEM WAIT VIEW retail_analytics.products_search_refresh;`. If it stays empty, `retail_oltp.products` is empty: go back to module 03. |
 | `make ch-search` fails with an unknown table | The ClickPipe has not created `retail_oltp.products` yet. Wait for the first load. |
 | A text-index error mentions an unknown index type | The service is older than 26.2. |
 | `Storage SharedMergeTree doesn't support FINAL` | You used `FINAL` on `products_search`; take it off. |

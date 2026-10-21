@@ -27,7 +27,7 @@ docker version --format '{{.Server.Version}}'
 docker info --format 'memory={{.MemTotal}} cpus={{.NCPU}}'
 ```
 
-It needs **8 GB of memory (8589934592 bytes or more) and 4 CPUs**.
+It needs about **8 GB of memory and 4 CPUs**. Docker reports a little under its setting (an 8 GB setting shows about 7.7 GiB), so do not judge it by hand: `make check-00` accepts anything from 7.5 billion bytes up.
 
 If Docker is not running, or is too small: **[PARTICIPANT DOES — console]** start Docker Desktop / OrbStack / Colima, and in its settings (Docker Desktop: *Settings, Resources*) give it 8 GB and 4 CPUs, then restart it. Wait until they say it is running, and run the commands again. You do not install Docker for them.
 

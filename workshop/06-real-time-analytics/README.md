@@ -21,7 +21,7 @@
 make ch-mvs
 ```
 
-This applies `sql/clickhouse/30_realtime_mvs.sql`. Open it. The dashboard used to aggregate the raw `snowplow_events` table on every refresh, every 5 seconds. The file instead creates five small tables and five **materialized views** that feed them: each time a batch is inserted into `snowplow_events`, the view aggregates **that batch** and writes the result into a target table.
+This applies `sql/clickhouse/30_realtime_mvs.sql`. Open it. Without rollups the dashboard would aggregate the raw `snowplow_events` table on every refresh, every 5 seconds. The file creates five small tables and five **materialized views** that feed them: each time a batch is inserted into `snowplow_events`, the view aggregates **that batch** and writes the result into a target table.
 
 Four of the target tables are `AggregatingMergeTree` (the fifth, a ten-minute window of raw page views for the live feed, is a plain `MergeTree` with a TTL). Take the first one:
 
@@ -56,6 +56,8 @@ Each insert is **100,000 rows**, about 98 MB of JSON that travels as about 7 MB,
 
 ### 3. Start the live generators
 
+If you ran `make setup` they are already running, and this changes nothing.
+
 ```bash
 make generators-start
 make logs S=producer-web
@@ -73,7 +75,7 @@ Every tile reads the rollup tables, not the raw events: that is why it can refre
 
 ### 5. Ask your own questions
 
-Run `sql/clickhouse/examples/06_real_time_analytics.sql` in the SQL console. In order:
+Run `sql/clickhouse/examples/06_real_time_analytics.sql` in the SQL console, or one query at a time with `make ch-query FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=1` (then `N=2`, and so on). In order:
 
 1. **Events per minute**, from the rollup. The aggregate states merge, so a coarser bucket is exact.
 2. **The purchase funnel**, with `windowFunnel`: how far did each session get, in order, within an hour: page view, product click, add to cart, checkout start, payment initiated, payment confirmed.

@@ -4,7 +4,7 @@
 
 **Step ids:** `offer`, `show-loaded`, `tour-schema`, `stock-guard`, `schema-rules`, `check`.
 
-**Time:** about 10 minutes. **Optional:** nothing later depends on it.
+**Time:** about 10 minutes (about 2 as a fast-track tour). **Optional:** nothing later depends on it.
 
 ## Preconditions
 
@@ -55,7 +55,7 @@ make pg-query Q="UPDATE stock SET quantity = quantity - 100000 WHERE product_id 
 make pg-query Q="UPDATE stock SET quantity = quantity - 100000 WHERE product_id = 3"
 ```
 
-The first changes **zero rows** (the `WHERE` guard); the second fails with `violates check constraint "stock_quantity_check"` (the table's guard) and changes nothing. Both are safe; say so before running them.
+The first changes **zero rows** (the `WHERE` guard); the second **fails on purpose** (the command exits with an error: that error is the demonstration, not a problem) with `violates check constraint "stock_quantity_check"` (the table's guard) and changes nothing. Both are safe; say so before running them.
 
 ### 5. `schema-rules` [AGENT RUNS] Two details that replication needs
 

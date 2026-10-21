@@ -42,6 +42,25 @@ def missing_services(seen: set[str], wanted: tuple[str, ...] = SERVICES) -> list
     return [s for s in wanted if s not in seen]
 
 
+def still_on_their_way(differences: dict[str, int], recent: dict[str, int]) -> dict[str, int]:
+    """What is NOT explained by recent writes. `differences` is Postgres minus ClickHouse per table; a row written to Postgres in the
+    last couple of minutes may not have crossed the pipe yet (the sync interval is 60 s), so up to `recent` missing rows are fine."""
+    return {t: d for t, d in differences.items() if d != 0 and not (0 < d <= recent.get(t, 0))}
+
+
+# Rows written to Postgres in the last two minutes, per table: what the pipe may still be carrying.
+RECENT_SQL = {
+    "orders": "SELECT count(*) FROM orders WHERE created_at > now() - interval '2 minutes'",
+    "order_items": "SELECT count(*) FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE created_at > now() - interval '2 minutes')",
+    "customers": "SELECT count(*) FROM customers WHERE created_at > now() - interval '2 minutes'",
+}
+
+
+def _recent_writes() -> dict[str, int]:
+    with pg_connect() as conn:
+        return {t: conn.execute(sql).fetchone()[0] for t, sql in RECENT_SQL.items()}
+
+
 class Checker:
     """Collects ✓/✗ lines; `ok(cond, good, bad)` records one."""
 
@@ -108,8 +127,17 @@ def check_03(c: Checker) -> None:
     c.ok(len(present) == len(CDC_TABLES), "all 6 tables are in retail_oltp", f"retail_oltp has {present or 'no'} tables of {list(CDC_TABLES)}: is the ClickPipe running and are the 6 tables selected?")
     c.ok(bool(present) and all({"_peerdb_is_deleted", "_peerdb_version"} <= cols[t] for t in present),
          "every table has _peerdb_version and _peerdb_is_deleted", "a table lacks the _peerdb_ columns: it was not created by the ClickPipe")
-    diff = compare_counts(_pg_counts(CDC_TABLES), _ch_counts(ch, CDC_TABLES))
-    c.ok(not diff, "row counts match Postgres (read with FINAL, deleted rows left out)", "not in step with Postgres yet, wait for the next sync: " + "; ".join(diff))
+    pg_n, ch_n = _pg_counts(CDC_TABLES), _ch_counts(ch, CDC_TABLES)
+    diff = compare_counts(pg_n, ch_n)
+    if diff and all(t in ch_n for t in pg_n):        # every table is there: is the difference only what the pipe is still carrying?
+        outstanding = still_on_their_way({t: pg_n[t] - ch_n[t] for t in pg_n}, _recent_writes())
+        if not outstanding:
+            carrying = {t: pg_n[t] - ch_n[t] for t in pg_n if pg_n[t] != ch_n[t]}
+            c.ok(True, "row counts match Postgres (read with FINAL, deleted rows left out); "
+                       + ", ".join(f"{n} new {t} from the last two minutes are still on their way" for t, n in carrying.items()), "")
+            return
+    c.ok(not diff, "row counts match Postgres (read with FINAL, deleted rows left out)",
+         "not in step with Postgres yet, wait for the next sync (up to a minute) and run it again: " + "; ".join(diff))
 
 
 def check_04(c: Checker) -> None:
@@ -117,7 +145,7 @@ def check_04(c: Checker) -> None:
     q = lambda sql: ch.query(sql).result_rows
     total, active = q("SELECT count(), countIf(is_active = 1) FROM retail_analytics.products_search")[0]
     c.ok(total == SEED_PRODUCTS and active == SEED_ACTIVE, f"products_search has {total:,} products, {active} active",
-         f"products_search has {total} rows ({active} active): run make ch-search, then SYSTEM REFRESH VIEW retail_analytics.products_search_refresh")
+         f"products_search has {total} rows ({active} active): run make ch-search, then SYSTEM REFRESH VIEW retail_analytics.products_search_refresh and SYSTEM WAIT VIEW retail_analytics.products_search_refresh")
     ddl = q("SHOW CREATE TABLE retail_analytics.products_search")[0][0]
     c.ok("TYPE text" in ddl or "text(" in ddl, "products_search has text indexes", "products_search has no text index")
     explain = "\n".join(r[0] for r in q("EXPLAIN indexes = 1 SELECT product_id FROM retail_analytics.products_search WHERE is_active = 1 AND hasAllTokens(search_en, 'running shoes')"))

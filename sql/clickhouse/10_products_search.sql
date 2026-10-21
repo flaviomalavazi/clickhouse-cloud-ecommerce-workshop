@@ -6,7 +6,7 @@
 -- rebuilds from the replicated Postgres tables every 5 minutes. Postgres stays
 -- the single source of truth for the catalogue, and stock levels show up in
 -- search. Freshness budget: ClickPipe sync interval + up to 5 minutes. To skip
--- the wait: SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
+-- the wait: SYSTEM REFRESH VIEW retail_analytics.products_search_refresh; (it only starts the refresh: SYSTEM WAIT VIEW retail_analytics.products_search_refresh; waits for it)
 --
 -- Because it is not a ReplacingMergeTree, FINAL on this table is an error.
 --

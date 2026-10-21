@@ -1,6 +1,6 @@
 """The pure parts of the module checks."""
 
-from module_checks import CHECKS, SERVICES, Checker, compare_counts, missing_services
+from module_checks import CHECKS, SERVICES, Checker, compare_counts, missing_services, still_on_their_way
 
 
 def test_counts_in_step_report_nothing():
@@ -34,3 +34,16 @@ def test_the_checker_counts_failures(capsys):
 def test_every_module_with_a_database_side_has_a_check():
     # Module 05 lives in scripts/checks/check-05.sh, 09 comes with the agents module, 00 and 10 need no database.
     assert set(CHECKS) == {"01", "02", "03", "04", "06", "07", "08"}
+
+
+def test_rows_the_pipe_is_still_carrying_are_not_a_failure():
+    assert still_on_their_way({"orders": 2, "order_items": 5, "stock": 0}, {"orders": 3, "order_items": 9}) == {}
+
+
+def test_more_missing_rows_than_were_written_recently_is_a_failure():
+    assert still_on_their_way({"orders": 4}, {"orders": 3}) == {"orders": 4}
+    assert still_on_their_way({"products": 1}, {"orders": 5}) == {"products": 1}       # the catalogue does not change under load
+
+
+def test_clickhouse_holding_more_than_postgres_is_always_a_failure():
+    assert still_on_their_way({"orders": -1}, {"orders": 3}) == {"orders": -1}

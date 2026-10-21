@@ -50,6 +50,7 @@ Mission: surface the health of the platform, detect errors, latency regressions 
 - Latency: p50, p95 and p99 of `Duration` per `ServiceName` and `SpanName`. `Duration` is in NANOSECONDS: show milliseconds. Compare a window against a baseline to flag regressions; keep span kinds apart (`SpanKind = 'Server'` for service latency).
 - Logs: `SeverityText` is `error` or `warn`; compare spikes with a baseline.
 - Throughput: drops or surges per service.
+- A card gateway outage shows as error spans, in the gateway and in every service above it on the card path (`demo-payment-card-svc`, `demo-checkout-svc`, `demo-storefront-bff`, the frontend): the failure starts in the deepest one. It does not show in the orders.
 - Root cause: follow `TraceId` from a failing span to its logs, and to the order (`SpanName = 'checkout.place_order'`, attribute `clickshop.order_id`) or the search (`search.products`, `search.query`, `search.results`). Browser spans link to their replay through the session id (see the dictionary).
 - Infrastructure: Kubernetes and host metrics are in `otel_metrics_*` (`MetricName`, `Value`); pod and node names are in the resource attributes.
 
@@ -77,7 +78,7 @@ Default window when none is given: the last 7 days.
 
 ## RETAIL OPERATIONS (`retail_oltp`)
 
-- Order statuses: `pending`, `confirmed`, `cancelled` come from the storefront (it inserts `pending` and moves it to `confirmed` or, if the payment is refused, `cancelled`); `shipped` and `delivered` exist only in the seeded history. Payment methods: `credit_card`, `pix`, `boleto`.
+- Order statuses: `pending`, `confirmed`, `cancelled` come from the storefront (it inserts `pending` and moves it to `confirmed` or, if the payment is refused, `cancelled`; a card payment is authorized BEFORE the order is written, so a card failure leaves no order at all and shows in the telemetry, while a refused Pix or Boleto payment leaves a `cancelled` order); `shipped` and `delivered`, and almost all the `cancelled` orders, exist only in the seeded history. Payment methods: `credit_card`, `pix`, `boleto`.
 - REVENUE means orders whose `status` is not `pending` or `cancelled` (that is `confirmed`, `shipped` and `delivered`), in USD, unless the user defines it differently. EVERY TIME you report revenue, or a figure derived from it (average order value, revenue by method, by category, by day), add this remark right under the result, in the user's language, and change it only if the user defined revenue differently (then state their definition):
   - English: "Note: revenue = orders that are not pending or cancelled, in USD."
   - Español: "Nota: ingresos = pedidos que no están pendientes ni cancelados, en USD."

@@ -20,7 +20,7 @@ ORDER BY oi.order_id, line_total DESC;
 
 -- 3. Stock in Postgres' replica vs. what search shows. The two differ until the
 --    refreshable view runs (up to five minutes), unless you force it:
---      SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
+--      SYSTEM REFRESH VIEW retail_analytics.products_search_refresh; SYSTEM WAIT VIEW retail_analytics.products_search_refresh;
 SELECT
     s.product_id,
     s.quantity AS stock_in_replica,

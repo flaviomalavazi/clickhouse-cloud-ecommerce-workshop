@@ -18,7 +18,7 @@ It must pass. The generators may keep running; the simulator does not need them.
 
 ### 1. `start-shoppers` [AGENT RUNS] Start the shoppers
 
-Skip if they are running already (the fast track's `make setup` starts them; check with `deploy/bin/kubectl -n clickshop get deploy simulator`).
+Skip if they are running already (the fast track's `make setup` starts them; check with `deploy/bin/kubectl -n clickshop get deploy simulator`: `READY 1/1` means running, `NotFound` means not).
 
 ```bash
 make sim-start USERS=4

@@ -6,7 +6,7 @@
 
 **You'll learn:**
 - how traces, logs and metrics from every part of the workshop land in the same ClickHouse database (`retail_otel`) as your business data;
-- how to follow one checkout through 8 services, down to the SQL it ran;
+- how to follow one checkout through 6 to 8 services (depending on how the shopper pays), down to the SQL it ran;
 - how to find the searches that returned nothing, from a trace attribute;
 - that the logs are searched with the same `text` index as the product search in module 04;
 - how a failure shows up, and how to follow it to its cause.
@@ -99,7 +99,7 @@ make break-card-gateway
 The card gateway now answers `502 card_gateway_unavailable` after 1.5 seconds. Card payments fail; Pix and Boleto go on. Give it a minute, then find out what happened **using only ClickStack**:
 
 1. In **Search** on **Logs**, search `card gateway unavailable`. Four services logged it: `demo-card-gateway`, `demo-payment-card-svc`, `demo-checkout-svc` and `demo-storefront-bff`. The one nearest the cause is the gateway: `journey failed role=card-gateway ... status=502 error=card_gateway_unavailable`.
-2. Open one of the lines, and its **Service Map**: the failure ends at `card-gateway`.
+2. Open one of the lines, and its **Service Map**: the failure ends at `demo-card-gateway`.
 3. Filter **Traces** on errors: the failing spans are on the card path, and each takes about a second longer than a normal one, because the gateway holds the request before it fails.
 4. On the gateway pod's **Infrastructure** tab, the pod timeline shows the old container being stopped as the deployment rolled out, when you ran the command.
 5. Look at the simulator: `make logs S=simulator`, where `failed` is rising.

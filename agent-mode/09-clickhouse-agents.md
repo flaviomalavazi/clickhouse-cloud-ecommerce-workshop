@@ -4,7 +4,7 @@
 
 **Step ids:** `check-ready`, `explain-agents`, `open-agents`, `create-agent`, `capabilities`, `first-questions`, `check-an-answer`, `improve-instructions`, `share-and-memory`, `fallback-sql`.
 
-**Time:** about 25 minutes (an estimate, not timed); fast-track tour about 12.
+**Time:** about 25 minutes (an estimate, not timed); fast-track tour about 8.
 
 **Beta, and not yet walked through in the console.** ClickHouse Agents is a Beta feature and its screens are in the console, where you cannot see them. The labels below come from ClickHouse's documentation. **If the participant's screen differs, trust the screen**: ask what they see and adapt, and do not insist on a label. Several things the documentation does not say are still being checked by the workshop's owner (how the agent reaches the service's data, which database role it uses, whether that is read-only, trial availability): never state them as facts, and do not invent screens, labels or prompts.
 
@@ -35,14 +35,15 @@ An agent is **instructions** (who it is, what it knows, what rules it follows), 
 
 "Click **Create New Agent** at the top of the left panel and fill in: **Name** `clickshop-analyst`; **Description** a sentence a teammate would understand; **Category** `General`; **Instructions**; **Model** (pick one from the dropdown)." If there is no **Create New Agent**, they need the **Create agent** option, which an organization admin grants.
 
-The instructions are the part that matters. Their text is in `workshop/09-clickhouse-agents/agents/clickshop-analyst/instructions.md`:
+The instructions are the part that matters. Their text is in `workshop/09-clickhouse-agents/agents/clickshop-analyst/instructions.md`. The participant reads the chat, not your terminal, so print it **in your reply**, as a code block, without the first line (an HTML comment addressed to the owner):
 
 ```bash
-head -5 workshop/09-clickhouse-agents/agents/clickshop-analyst/instructions.md
+sed '/^<!--/d' workshop/09-clickhouse-agents/agents/clickshop-analyst/instructions.md
 ```
 
-- **If it is the final text** (the first lines have no `TODO(owner)`): show it in the terminal with `cat`, and tell them to copy it into the **Instructions** field themselves. It has two placeholders, `<ORG_ID>` and `<SERVICE_ID>`, which they fill in with their own organization and service ids from the console (they are not secrets, but you do not know them: ask them to put them in). The text expects `docs/data-dictionary.md` to be attached to the agent as file context, so tell them to attach it (**File Context**).
-- **If the first lines contain `TODO(owner)`**, the workshop's instructions are still a draft the owner is reviewing. Say so plainly. Do not present a draft as the official text. You may still use it, or offer to write a first version **with** them from `docs/data-dictionary.md` (section 2, "Rules every query must follow", is the core): they decide the rules, you write them down, and they paste the result. That is a good exercise, not a stopgap.
+Then tell them, in this order: (1) replace the two placeholders, `<ORG_ID>` and `<SERVICE_ID>`, with their own organization id and service id (they are not secrets; `make cloud-ids` prints both, if they have an API key); (2) attach `docs/data-dictionary.md` to the agent as **File Context**, because the text refers to it; (3) paste the text into the **Instructions** field themselves.
+
+There is one path. If the first line of the file mentions `TODO(owner)`, the text is the current version and the workshop's owner is still reviewing it: say so in a sentence, and use it anyway. Offer to write their own instructions together from `docs/data-dictionary.md` (section 2, "Rules every query must follow", is the core) only if they want that: it is a good exercise, not a stopgap.
 
 ### 5. `capabilities` [PARTICIPANT DOES — console] What it may do
 
@@ -58,15 +59,15 @@ make ch-query FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=3
 make ch-query FILE=sql/clickhouse/examples/07_simulated_shoppers.sql N=4
 ```
 
-(2 is the funnel, 3 the searches that found nothing, 4 the freshness of the replica.) The other candidates' SQL is in the questions file: read the statement there and run it with `make ch-query Q='...'`.
+(2 is the funnel, 3 the searches that found nothing, 4 the freshness of the replica.) The other candidates' SQL is in the questions file: read the statement there and run it with `make ch-query Q="..."`.
 
 ### 7. `check-an-answer` [AGENT RUNS] Check an answer
 
 Do this on every answer, and make the participant do the thinking:
 
 1. They ask the agent: "Show me the SQL you ran." and read it out (or paste it into the chat: it is SQL, not a secret).
-2. Review it together against the data dictionary: does it read `retail_oltp` with `FINAL` and `_peerdb_is_deleted = 0`? Filter `is_active`? Sum `bill_value` across currencies (it must not)? Count chargebacks as negative anomalies? Treat `Duration` as milliseconds (it is nanoseconds)? Take the window they meant?
-3. Run the same SQL with `make ch-query Q='...'` and compare the numbers with the agent's.
+2. Review it together against the data dictionary: does it read `retail_oltp` with `FINAL` and `_peerdb_is_deleted = 0`? Filter `is_active`? Sum `bill_value` across currencies (it must not)? Count chargebacks as negative anomalies (it must not: they are negative by design, only a negative *expense* is an anomaly)? Treat `Duration` as milliseconds (it is nanoseconds)? Take the window they meant?
+3. Run the same SQL with `make ch-query Q="..."` and compare the numbers with the agent's.
 
 When it is wrong, the lesson is that the fix belongs in the **instructions**, not in a cleverer question.
 
@@ -103,7 +104,7 @@ There is no automated check for this module: the agent lives in the console. The
 | The agent says it cannot reach the data | `make doctor` confirms the service itself is fine | Its tools are not set up for the service: look at **Capabilities** and **Add Tools** (step 5). After two attempts, step 10. |
 | Its numbers differ from `make ch-query` | Compare its SQL with yours | The usual causes: no `FINAL` or no `_peerdb_is_deleted = 0` on `retail_oltp`; inactive products counted; `bill_value` summed across currencies; negative card amounts counted on chargebacks; another time window. |
 | It finds nothing for "the last hour" | `make status` shows how old each table is | The load is stopped: `make generators-start` and `make sim-start USERS=4`. |
-| Question 9 (cancelled orders) finds none | `make ch-query Q="SELECT status, count() FROM retail_oltp.orders FINAL WHERE _peerdb_is_deleted = 0 AND created_at > now() - INTERVAL 1 DAY GROUP BY status"` | Nothing is cancelled until module 08's gateway exercise has run; that is not an error. |
+| Question 9 (card payment failures) shows nothing | `make ch-query Q="SELECT ServiceName, count() FROM retail_otel.otel_traces WHERE StatusCode = 'Error' AND Timestamp > now() - INTERVAL 1 HOUR GROUP BY ServiceName"` | There is nothing to find until the card gateway fails: module 08's exercise. That is not an error. A card failure leaves no order, so do not look for cancelled orders. |
 
 ## Fast track
 

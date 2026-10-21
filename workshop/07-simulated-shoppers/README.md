@@ -17,6 +17,8 @@
 
 ### 1. Start the shoppers
 
+If you ran `make setup` they are already running (four browsers): go to step 2.
+
 ```bash
 make sim-start USERS=4
 make logs S=simulator
@@ -40,7 +42,7 @@ In `make psql` (Postgres):
 SELECT id, status, payment_method, total_amount, created_at FROM orders ORDER BY id DESC LIMIT 5;
 ```
 
-New rows appear every minute or so, with the ids following 2,000 (the seeded history). In ClickHouse (SQL console), the same orders show up after the ClickPipe's next sync:
+New rows appear every minute or so, with the ids following 2,000 (the seeded history). In ClickHouse (SQL console, or `make ch-query Q="..."`), the same orders show up after the ClickPipe's next sync:
 
 ```sql
 SELECT id, status, payment_method, total_amount, created_at
@@ -91,7 +93,7 @@ This is the point of the workshop in one query: a row that was written by a tran
 
 Query 5 sums confirmed orders by `credit_card`, `pix` and `boleto`. After ten minutes you should see all three.
 
-When you are done: `make sim-stop` (or `make traffic-stop` to stop the generators too).
+**Leave the shoppers running**: module 08 needs the traffic. When you are done with the whole workshop: `make sim-stop` (or `make traffic-stop` to stop the generators too).
 
 ## Checkpoint
 

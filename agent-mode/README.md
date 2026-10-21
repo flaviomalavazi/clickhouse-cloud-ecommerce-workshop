@@ -19,7 +19,7 @@ These files are **your** source. They are not the human READMEs in `workshop/`, 
 
 **Module 02 is optional in both tracks.** Offer it in one sentence ("a ten-minute tour of the Postgres side; skip it if you like") and respect the answer: mark it `skipped`.
 
-**Time in the fast track.** A suggested budget, to steer by and not to enforce: module 01 and `make setup` 20 minutes (explain while it runs), then about 5 to 8 minutes for each of 03 to 08, a few for 09, and 5 for cleanup. Ask which parts they most want to see first; the modules do not depend on each other once `make setup` has run, except that 07 and 08 want the shoppers to have been running for a few minutes.
+**Time in the fast track.** A suggested budget, to steer by and not to enforce: module 01 and `make setup` take about 20 minutes (explain while it runs). The tours then add up to about 65 minutes if you do all of them (03 ten, 04 six, 05 eight, 06 eight, 07 seven, 08 twelve, 09 eight, 10 five), and in an hour about 40 are left: ask which parts they most want to see first. 03 and 08 are the best use of the time. Once `make setup` has run you can tour them in any order: each playbook's Preconditions names a check; run it, and if it fails only because it needs time (module 07's check wants about ten minutes of shoppers) say so and carry on.
 
 ## Reading a playbook
 
@@ -41,6 +41,8 @@ The tags say who acts:
 | `[AGENT RUNS]` | You run it. Say what it does first, and show the participant the result in a sentence, not the whole output. |
 | `[PARTICIPANT DOES — console]` | Only they can do it (the Cloud console, the browser, their editor). Describe exactly what to click, using the labels the playbook gives. Then wait. |
 | `[EXPLAIN]` | You teach; nothing runs. Keep it to the talking points, then offer to go deeper. |
+
+A step can hold a command of yours inside a participant step (a check, a lookup): the tag names who does the main thing.
 
 ## The progress file
 
@@ -64,9 +66,9 @@ The tags say who acts:
 ```
 
 - `status` is one of `not_started`, `in_progress`, `done`, `skipped`. A module with no entry is `not_started`.
-- `current.step` is a step id from the playbook. Update the file **after each step** and at each module's exit, with the time in UTC.
+- `current` is where you are: the module, and the step id (from its playbook) you are on, meaning the one in progress or the first not done. When you create the file, before anything has run, it is `{ "module": "00", "step": "docker-ready" }`. Update the file **after each step** and at each module's exit, with the time in UTC.
 - `notes` holds only what a later session needs and nothing secret: the participant's language, `setup_done: true` once `make setup` has finished, a test row you created and have not removed (`test_order_id`), or `card_gateway_broken: true` while module 08's exercise is running.
-- **Resuming:** read the file, run `make check-NN` for the last `done` module, and run `make status`. If a check fails, tell the participant, mark that module `in_progress` and continue from there. Remove any leftover from `notes` first: delete a stray `test_order_id` order, and run `make fix-card-gateway` if `card_gateway_broken` is set.
+- **Resuming:** read the file, run `make check-NN` for the last `done` module that has a check (module 09 has none: use the one before it), and run `make status`. The checks of modules 05 to 08 need the cluster and the load, so if they are stopped (after a reboot) restart them first with `make setup` (safe to repeat). If a check then fails, tell the participant, mark that module `in_progress` and continue from there. Remove any leftover from `notes` first: delete a stray `test_order_id` order, and run `make fix-card-gateway` if `card_gateway_broken` is set.
 
 ## Talking to the participant
 

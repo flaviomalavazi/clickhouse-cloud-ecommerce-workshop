@@ -28,7 +28,7 @@ TOOLS_TTY := docker run --rm -it --env-file .env -v "$(CURDIR)":/workspace:ro $(
 .DEFAULT_GOAL := help
 .PHONY: help check-env tools-image doctor prefetch cluster images secrets apply-env app otel-k8s setup notebook \
         pg-setup pg-migrate pg-seed pg-reset psql ch-query pg-query clickpipes clickpipes-status clickpipes-wait clickpipes-delete clickstack-setup clickstack-list ch-bootstrap ch-search ch-mvs ch-client \
-        generators-start generators-stop backfill backfill-run sim-start sim-stop traffic-stop \
+        need-cluster need-app cloud-ids generators-start generators-stop backfill backfill-run sim-start sim-stop traffic-stop \
         break-card-gateway fix-card-gateway status logs down nuke-data \
         test images-webp dev-frontend
 
@@ -75,15 +75,15 @@ ch-client: check-env ## Open clickhouse-client on the service (uses the official
 	  'exec clickhouse-client --host "$$CLICKHOUSE_HOST" --port $(CLICKHOUSE_NATIVE_TLS_PORT) --secure --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD"'
 
 # SQL without a prompt, for a coding agent or a script (psql and ch-client need a terminal):
-#   make ch-query Q='SELECT 1'      make ch-query FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2
+#   make ch-query Q="SELECT 1"      make ch-query FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2
 # The statement goes in single quotes (an embedded ' is escaped); write $$ for a literal $.
 QUERY_ARGS = $(if $(Q),--sql '$(subst ','\'',$(Q))') $(if $(FILE),--file '$(FILE)' $(if $(N),--only $(N)))
-QUERY_USAGE = usage: make $@ Q='SELECT 1'   or   make $@ FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2
-ch-query: check-env tools-image ## Run SQL on ClickHouse without a prompt: Q='SELECT 1' or FILE=<example.sql> N=<query number>
+QUERY_USAGE = usage: make $@ Q=\"SELECT 1\"   or   make $@ FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2
+ch-query: check-env tools-image ## Run SQL on ClickHouse without a prompt: Q="SELECT 1" or FILE=<example.sql> N=<query number>
 	@test -n "$(Q)$(FILE)" || { echo "$(QUERY_USAGE)"; exit 2; }
 	@$(TOOLS_RUN) python /app/tools/query.py clickhouse $(QUERY_ARGS)
 
-pg-query: check-env tools-image ## Run SQL on Postgres without a prompt: Q='SELECT 1'
+pg-query: check-env tools-image ## Run SQL on Postgres without a prompt: Q="SELECT 1"
 	@test -n "$(Q)$(FILE)" || { echo "$(QUERY_USAGE)"; exit 2; }
 	@$(TOOLS_RUN) python /app/tools/query.py postgres $(QUERY_ARGS)
 
@@ -118,6 +118,9 @@ clickstack-setup: check-env tools-image ## Create the ClickStack sources (logs, 
 clickstack-list: check-env tools-image ## List the ClickStack sources
 	@$(TOOLS_RUN) python /app/tools/clickstack.py list
 
+cloud-ids: check-env tools-image ## Print your Cloud organization id and service id (for the agent's instructions; needs an API key)
+	@$(TOOLS_RUN) python /app/tools/cloud_api.py ids
+
 notebook: check-env tools-image ## Open the notebook that creates the ClickPipe (JupyterLab on http://localhost:8888)
 	@docker build -q -t clickshop-notebook -f notebooks/Dockerfile notebooks >/dev/null
 	@echo "JupyterLab on http://localhost:8888 (Ctrl+C to stop); open 01_create_clickpipes.ipynb"
@@ -128,7 +131,7 @@ notebook: check-env tools-image ## Open the notebook that creates the ClickPipe 
 doctor: tools-image ## Check Docker, ports, .env and both databases
 	@scripts/doctor.sh
 
-prefetch: ## Download and build everything ahead of the workshop (needs a network once)
+prefetch: tools-image ## Download and build everything ahead of the workshop (needs a network once)
 	@$(MAKE) --no-print-directory $(OTEL_CHART)
 	@for image in $(K3D_IMAGE) $(K3D_TOOLS_IMAGE) $(K3D_PROXY_IMAGE) $(HELM_IMAGE) $(KUBECTL_IMAGE) \
 	  $$(awk '/^image:/{print $$2}' deploy/k3d/cluster.yaml) $(CLICKHOUSE_IMAGE); do \
@@ -136,17 +139,28 @@ prefetch: ## Download and build everything ahead of the workshop (needs a networ
 	@deploy/images.sh --no-import --all
 	@echo "prefetched: the cluster can be created offline"
 
+# A command that needs the cluster says so in one line, instead of a kubectl error about localhost:8080.
+CLUSTER_NODE := k3d-clickshop-server-0
+CLUSTER_UP   := docker inspect -f '{{.State.Running}}' $(CLUSTER_NODE) 2>/dev/null | grep -q true
+APP_UP       := $(CLUSTER_UP) && $(HELM) status clickshop -n $(NS) >/dev/null 2>&1
+
+need-cluster:
+	@$(CLUSTER_UP) || { echo "ERROR: the local cluster is not running. Create it with:  make cluster images secrets app  (module 05), or run  make setup"; exit 1; }
+
+need-app: need-cluster
+	@$(HELM) status clickshop -n $(NS) >/dev/null 2>&1 || { echo "ERROR: the application is not installed in the cluster. Install it with:  make secrets app  (module 05), or run  make setup"; exit 1; }
+
 cluster: ## Create the k3d cluster (1 server, 2 agents; the storefront is on localhost:3000)
 	@deploy/cluster.sh up
 
-images: ## Build the images and load them into the cluster (only what changed)
+images: need-cluster ## Build the images and load them into the cluster (only what changed)
 	@deploy/images.sh
 
-secrets: check-env ## Put .env into the cluster (Secret clickshop-secrets, plus the Postgres certificate)
+secrets: check-env need-cluster ## Put .env into the cluster (Secret clickshop-secrets, plus the Postgres certificate)
 	@deploy/secrets.sh
 
 ENV_DEPLOYMENTS := frontend|snowplow-bridge|otel-gateway|card-gateway|producer-web|producer-cc|simulator
-apply-env: secrets ## After editing .env: update the Secret and restart the pods that read it
+apply-env: need-app secrets ## After editing .env: update the Secret and restart the pods that read it
 	@$(KUBECTL) -n $(NS) get deploy -o name | grep -E '/($(ENV_DEPLOYMENTS))$$' | xargs $(KUBECTL) -n $(NS) rollout restart
 	@$(KUBECTL) -n $(NS) rollout status deploy --timeout=5m
 
@@ -155,34 +169,35 @@ $(OTEL_CHART):
 	@$(HELM) pull opentelemetry-collector --repo $(OTEL_CHART_REPO) --version $(OTEL_CHART_VERSION) \
 	  --destination /workspace/.workshop/charts >/dev/null
 
-otel-k8s: $(OTEL_CHART) ## Install the two Kubernetes collectors (node + cluster) into ClickStack
+otel-k8s: need-cluster $(OTEL_CHART) ## Install the two Kubernetes collectors (node + cluster) into ClickStack
 	@$(HELM) upgrade --install k8s-otel-daemonset $(OTEL_CHART) -f deploy/helm/otel-k8s/node.values.yaml \
 	  -n observability --create-namespace --wait --timeout 5m >/dev/null
 	@$(HELM) upgrade --install k8s-otel-deployment $(OTEL_CHART) -f deploy/helm/otel-k8s/cluster.values.yaml \
 	  -n observability --wait --timeout 5m >/dev/null
 	@echo "Kubernetes collectors running in namespace observability"
 
-app: ## Install or upgrade the application and the Kubernetes collectors
+app: need-cluster ## Install or upgrade the application and the Kubernetes collectors
 	@$(HELM) upgrade --install clickshop $(APP_CHART) -n $(NS) --create-namespace \
 	  --reset-then-reuse-values --wait --timeout 10m >/dev/null
 	@$(MAKE) --no-print-directory otel-k8s
 	@echo "ClickShop is running: http://localhost:3000"
 
 # ── Workloads (modules 06 and 07) ────────────────────────────────────────────
-generators-start: ## Start the live traffic generators (web events and card transactions)
+generators-start: need-app ## Start the live traffic generators (web events and card transactions)
 	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
 	  --set producers.enabled=true --wait >/dev/null
 	@echo "generators running (make logs S=producer-web). Stop them with: make generators-stop"
 
 generators-stop: ## Stop the live traffic generators
-	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
-	  --set producers.enabled=false --wait >/dev/null
-	@echo "generators stopped"
+	@if $(APP_UP); then \
+	  $(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values --set producers.enabled=false --wait >/dev/null \
+	  && echo "generators stopped"; \
+	else echo "nothing to stop: the application is not running"; fi
 
 backfill: check-env tools-image ## Load 30 days of history into ClickHouse (a Kubernetes Job, a few minutes); skipped if it is there, FORCE=1 loads it again
 	@if [ -z "$(FORCE)" ] && $(TOOLS_RUN) python /app/tools/backfill_guard.py; then :; else $(MAKE) --no-print-directory backfill-run; fi
 
-backfill-run:
+backfill-run: need-app
 	@$(KUBECTL) -n $(NS) delete job backfill --ignore-not-found >/dev/null
 	@$(HELM) template clickshop $(APP_CHART) -n $(NS) --set backfill.enabled=true \
 	  --show-only templates/backfill.yaml | $(KUBECTL) apply -n $(NS) -f - >/dev/null
@@ -191,29 +206,31 @@ backfill-run:
 	@$(KUBECTL) -n $(NS) wait --for=condition=complete job/backfill --timeout=60s
 
 USERS ?= 4
-sim-start: ## Start simulated shoppers in real browsers: make sim-start USERS=4
+sim-start: need-app ## Start simulated shoppers in real browsers: make sim-start USERS=4
 	@deploy/images.sh simulator
 	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
 	  --set simulator.enabled=true --set simulator.sessions=$(USERS) --wait >/dev/null
 	@echo "simulator running with $(USERS) browsers (make logs S=simulator). Stop it with: make sim-stop"
 
 sim-stop: ## Stop the simulated shoppers
-	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
-	  --set simulator.enabled=false --wait >/dev/null
-	@echo "simulator stopped"
+	@if $(APP_UP); then \
+	  $(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values --set simulator.enabled=false --wait >/dev/null \
+	  && echo "simulator stopped"; \
+	else echo "nothing to stop: the application is not running"; fi
 
 traffic-stop: ## Stop all the load at once: the live generators and the simulated shoppers
-	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
-	  --set producers.enabled=false --set simulator.enabled=false --wait >/dev/null
-	@echo "generators and simulator stopped"
+	@if $(APP_UP); then \
+	  $(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values --set producers.enabled=false --set simulator.enabled=false --wait >/dev/null \
+	  && echo "generators and simulator stopped"; \
+	else echo "nothing to stop: the application is not running"; fi
 
 # ── Fault exercise (module 08) ───────────────────────────────────────────────
-break-card-gateway: ## Make the card gateway fail (502 after 1.5 s)
+break-card-gateway: need-app ## Make the card gateway fail (502 after 1.5 s)
 	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
 	  --set cardGatewayDown=true --wait >/dev/null
 	@echo "card-gateway is down: card payments fail with 502 card_gateway_unavailable. Bring it back with: make fix-card-gateway"
 
-fix-card-gateway: ## Bring the card gateway back
+fix-card-gateway: need-app ## Bring the card gateway back
 	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
 	  --set cardGatewayDown=false --wait >/dev/null
 	@echo "card-gateway is up"
@@ -226,9 +243,10 @@ status: check-env tools-image ## Pods, then row counts and freshness of the work
 	@$(TOOLS_RUN) python /app/tools/status.py
 
 TAIL ?= 100
-logs: ## Follow a service's logs: make logs S=frontend
+logs: need-cluster ## Follow the logs of a service, or of a Job such as backfill: make logs S=frontend
 	@test -n "$(S)" || { echo "usage: make logs S=<service>   (frontend, storefront-bff, otel-gateway, producer-web, simulator, ...)"; exit 2; }
-	@$(KUBECTL) -n $(NS) logs -f --tail=$(TAIL) deploy/$(S)
+	@if $(KUBECTL) -n $(NS) get deploy $(S) >/dev/null 2>&1; then kind=deploy; else kind=job; fi; \
+	  $(KUBECTL) -n $(NS) logs -f --tail=$(TAIL) $$kind/$(S)
 
 check-%: ## Check a module's result: make check-05 (see scripts/checks)
 	@test -x scripts/checks/check-$*.sh || { echo "no check for module $*"; exit 2; }
