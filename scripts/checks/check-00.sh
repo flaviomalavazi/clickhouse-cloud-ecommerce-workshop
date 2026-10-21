@@ -13,6 +13,7 @@ mem=$(docker info --format '{{.MemTotal}}'); cpus=$(docker info --format '{{.NCP
 # Docker Desktop reports a little under its setting: an 8 GB setting shows about 7.7 GiB.
 if [ "$mem" -ge 7500000000 ]; then pass "Docker has $(awk -v b="$mem" 'BEGIN { printf "%.1f", b / 1073741824 }') GiB of memory (needs 8 GB)"; else fail "Docker has less than 8 GB of memory: Docker Desktop, Settings, Resources"; fi
 if [ "$cpus" -ge 4 ]; then pass "Docker has $cpus CPUs (needs 4)"; else fail "Docker has $cpus CPUs, the cluster needs 4"; fi
+if docker buildx version >/dev/null 2>&1; then pass "Docker has buildx (images build with BuildKit)"; else echo "  · Docker has no buildx plugin: the images build with the legacy builder, slower and with a deprecation notice (make doctor says how to add it)"; fi
 check "the tools image (clickshop-tools: Python, psql) is built" docker image inspect clickshop-tools
 if docker image inspect clickshop-tools >/dev/null 2>&1; then
   free_gb=$(docker run --rm --entrypoint df clickshop-tools -Pk / 2>/dev/null | awk 'NR == 2 { printf "%.0f", $4 / 1048576 }')
