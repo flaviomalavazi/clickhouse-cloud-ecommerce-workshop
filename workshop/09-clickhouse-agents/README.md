@@ -98,8 +98,11 @@ There is no automated check: the agent lives in the console. You are done when:
 ## Going further
 
 - Ask for a chart: the **Artifacts** capability renders one.
+- **Monitor the agent with Langfuse Cloud** (the optional final step): [a page of its own](langfuse.md) takes you from creating a Langfuse account and its API keys to reading the trace of each question your analyst answers.
 - Create a second agent for observability only (`retail_otel`: traces, logs, metrics), with its own instructions, and ask it about the card gateway exercise from module 08.
 - **Subagents** (under **Advanced settings**) let one agent hand work to another, for example an analyst that asks an observability agent.
 - Managed Postgres has its own agent integration (it can query the Postgres instance directly and combine it with ClickHouse in one question). TODO(owner): find out how to enable it, and whether it is worth adding to this module.
+
+**Optional final step:** [monitor the agent with Langfuse](langfuse.md) (about 15 minutes, not in the total).
 
 **Next:** [module 10, Cleanup](../10-cleanup/README.md).

@@ -187,6 +187,17 @@ def test_the_fast_track_is_the_default_and_nobody_is_made_to_choose_first():
         assert "ask one question" not in text and "Ask once" not in text, f"{name} still asks which track"
 
 
+def test_the_guide_asks_for_the_language_once_and_remembers_it():
+    """Spanish and English participants are both guided in their own language, and the answer outlives the session."""
+    agents = text_of(AGENTS_MD)
+    start = agents.split("## Start or resume")[1].split("## Golden rules")[0]
+    assert "which language" in start and "English" in start and "Spanish" in start, "AGENTS.md must ask for the language when it starts"
+    for name, text in (("AGENTS.md", agents), ("agent-mode/README.md", text_of(AGENT_MODE / "README.md")),
+                       (".claude/commands/workshop.md", text_of(ROOT / ".claude" / "commands" / "workshop.md"))):
+        assert "notes.language" in text, f"{name} must say that the language is recorded in the progress file"
+    assert "the track is not part of it" in start, "the language is the only question asked first: the track still is not"
+
+
 def test_claude_code_is_denied_the_env_file_but_not_its_template():
     settings = json.loads(text_of(ROOT / ".claude" / "settings.json"))
     deny = settings["permissions"]["deny"]

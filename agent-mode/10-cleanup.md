@@ -52,7 +52,7 @@ You never delete cloud resources yourself. They do it in the ClickHouse Cloud co
    `no ClickPipe named ...` (it exits with an error status: that is the good answer) means it is gone. This needs the ClickHouse service to still exist, which is why it comes now.
 2. **Delete the Managed Postgres instance.**
 3. **Stop, then delete, the ClickHouse service.** ClickStack's sources and connection go with it.
-4. **Delete the API key** they created in module 01 (the organization's **API keys** page). It has the Admin role and would outlive `.env`. If they built an agent in module 09, they can delete it from the Agent Builder too.
+4. **Delete the API key** they created in module 01 (the organization's **API keys** page). It has the Admin role and would outlive `.env`. If they built an agent in module 09, they can delete it from the Agent Builder too. **If `notes.langfuse` is `done`** (module 09's optional final step), they also delete the Langfuse project, or at least its API keys, in Langfuse Cloud, and remove the Langfuse settings from ClickHouse Agents: the project holds their conversations and a secret key. You never touch either.
 
 ### 5. `check` [AGENT RUNS] The checkpoint
 

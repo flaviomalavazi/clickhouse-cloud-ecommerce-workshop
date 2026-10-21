@@ -23,14 +23,15 @@ What the participant builds, in one sentence: an online shop whose **orders live
 | What | Check | Why |
 |---|---|---|
 | **Whose organization** | Decide: each participant in their own, or everyone in one shared organization. | In a shared one, every service is named `clickshop` and `clickshop-pg` unless you ask for a prefix (initials work), an Admin API key sees every service, and the generators of one participant write into that participant's service only. |
-| **Managed Postgres is available** | In each participant's organization, in the region you choose. It is a Beta feature. | The workshop depends on it. TODO(owner): confirm availability in trial organizations and the list of regions. |
-| **Postgres CDC ClickPipes are available** | Same organizations. | Module 03. TODO(owner): confirm. |
+| **Managed Postgres is available** | In each participant's organization, in the region you choose (confirmed by the owner: available everywhere the participants are). It is a Beta feature. | The workshop depends on it. |
+| **Postgres CDC ClickPipes are available** | Same organizations (confirmed by the owner). | Module 03. |
 | **Service sizes** | ClickHouse: any size that is allowed to start; it needs version 26.2 or newer (a new service is). Postgres: "a small size is plenty". | TODO(owner): name the tier you tested with. |
 | **Region** | One region for both services, close to the venue. | Replication must not cross regions, and the laptops talk to the Cloud over the internet on every query. |
 | **An API key with the Admin role** | For the fast track: each participant creates one (organization **API keys** page) and deletes it in module 10. | `make setup` creates the ClickPipe and the ClickStack sources through the Cloud API. If a key sees several organizations, `.env` also needs `CLICKHOUSE_CLOUD_ORGANIZATION_ID`. |
 | **ClickStack** | Open it once from the participant's service (it creates its connection). | Otherwise the last step of `make setup` reports `NOT DONE` and tells them to open it and run `make clickstack-setup`. |
-| **ClickHouse Agents** (module 09) | A Beta feature. Creating agents needs the **Create agent** option. | TODO(owner): permission name and where an admin grants it, trial availability, and a console walk-through: module 09 is a draft until then. Decide whether to run it as a demo. |
-| **Cost** | The ClickHouse service and the Postgres instance bill while they exist; [module 10](10-cleanup/README.md) removes them. | TODO(owner): the cost per participant for the length of the session, and any credits. |
+| **ClickHouse Agents** (module 09) | A Beta feature, available in the participants' organizations (confirmed by the owner). Creating agents needs the **Create agent** option. | TODO(owner): the permission's name and where an admin grants it, and a console walk-through: module 09 is a draft until then. Decide whether to run it as a demo. |
+| **Langfuse Cloud** (module 09's optional final step) | Each participant who does it needs an email address and an **organization admin** role in ClickHouse Cloud, and creates a free Langfuse **Hobby** account (no card) in one region, EU or US. Keys belong to a region and a project. The ClickHouse side is a Public Beta for newly created chats. | TODO(owner): where ClickHouse Agents takes the keys (nothing documents it); whether participants should share one Langfuse project (a trace holds the whole conversation, so probably not); the Hobby plan's current limits. Decide whether to run it as a demo. |
+| **Cost** | The ClickHouse service and the Postgres instance bill while they exist, and the **$300 of ClickHouse Cloud trial credits cover the workshop** (confirmed by the owner). [Module 10](10-cleanup/README.md) removes both when it is over. | Nothing to arrange, as long as each participant is on a trial organization. |
 
 If someone is blocked at the console (a service will not start, a feature is missing), have **a spare set of services** ready, created beforehand, so they can continue with `.env` filled from yours (and then delete it).
 
@@ -135,7 +136,7 @@ It prints `[n/13]` lines. Use each wait:
 | `make setup` ends with `NOT DONE` for ClickStack | ClickStack was never opened for the service | Open it once from the service in the console, then `make clickstack-setup`. |
 | `check-03`: not in step with Postgres | The ClickPipe is behind | Wait one sync interval (60 s) and run it again. |
 | `check-07` or `check-08`: no order of a payment method, no traces from a service | The shoppers have not run long enough | About ten minutes. |
-| **Every card payment fails on a new cluster** | `CARD_GATEWAY_DOWN=true` is in `.env` (the gateway reads it from there) | `make doctor` warns about it. Remove the line, and `make apply-env` if the cluster is running. (`make fix-card-gateway` works until the cluster is recreated.) |
+| **Every card payment fails on a new cluster** | Expected when `CARD_GATEWAY_DOWN=true` is in `.env` (the gateway reads it from there): it is how the demo gives ClickStack errors to show. `make doctor` says so. | To stop it, remove the line and run `make apply-env` if the cluster is running (`make fix-card-gateway` works until the cluster is recreated). |
 | Search finds nothing, or shows the old stock | `products_search` is rebuilt every five minutes | `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh` then `SYSTEM WAIT VIEW ...` (the first only starts it). |
 | The dashboard's "right now" tiles, or a "last hour" question, are empty | The load is stopped | `make traffic-start`. |
 | A "legacy builder is deprecated" notice before every image build | Docker has no buildx plugin (on OrbStack its link in `~/.docker/cli-plugins` is missing) | `make doctor` says how to add it. The images build either way, and faster with it. |
@@ -157,10 +158,11 @@ It prints `[n/13]` lines. Use each wait:
 
 ## Open items (TODO(owner))
 
-1. Managed Postgres and Postgres CDC ClickPipes availability for the participants' organizations (trials, regions), and the tier tested.
-2. The cost per participant for the session, and any credits.
-3. ClickHouse Agents: the permission to create agents, trial availability, and the console walk-through of [module 09](09-clickhouse-agents/README.md) (its list of questions is in `docs/decisions.md`, section "Phase 9").
+Settled by the owner: Managed Postgres, Postgres CDC ClickPipes and ClickHouse Agents are available in the participants' organizations; the cost is covered by the $300 trial credits; prebuilt images on GHCR will **not** be published (the images are always built on the participant's machine); `CARD_GATEWAY_DOWN=true` in `.env` is intentional.
+
+1. The tier of the services the workshop was tested with (the Postgres size in particular).
+2. ClickHouse Agents: the permission to create agents, where an admin grants it, and the console walk-through of [module 09](09-clickhouse-agents/README.md) (its list of questions is in `docs/decisions.md`, section "Phase 9"), including where the Langfuse credentials are entered (the optional final step: see [the Langfuse page](09-clickhouse-agents/langfuse.md)).
+3. Co-authoring and checking the analyst's candidate questions (ten so far) in `agents/clickshop-analyst/questions.md`.
 4. Shared organization or one each, and how the services' credentials reach the participants (pre-provisioning for the one-hour format).
 5. The console steps of modules 01 and 03, walked through once on a clean organization (the labels were confirmed in the Phase 7 review; the flow has not been timed).
 6. A rehearsal on a second machine and a fresh organization, filling in the "Your run" column.
-7. Prebuilt images on GHCR to save the build time on venue wifi (decision D20): it publishes externally, so it needs your approval.
