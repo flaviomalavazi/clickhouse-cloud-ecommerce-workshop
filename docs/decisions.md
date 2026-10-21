@@ -69,6 +69,7 @@ and the change is written down below.
 | D59 | **Module 09 is a draft written from the ClickHouse documentation, and what the documentation does not say is marked `TODO(owner)` and not assumed**: how an agent reaches the service's data (built-in tool or MCP server), which database role it uses, whether that is read-only, trial availability, and the exact permission label. The agent's instructions and questions are outlines headed `TODO(owner): co-author`; no final prompt was written. | Open: owner verifies in the console |
 | D60 | **Prices and order totals are USD** (the catalogue, `orders.total_amount`, `order_items.unit_price`, the checkout events' `se_value`); the storefront only converts for display (`pt` as BRL at 5.4, `es` as MXN at 18). `credit_card_transactions.bill_value` is in the card's own currency and is never summed across currencies. Stated in the dictionary because an agent will otherwise assume BRL. | Confirmed |
 | D61 | The module 06 card-anomaly query counts a negative `bill_value` **on expenses only**: chargebacks are negative by design (97 % of them), and counting them gave 68,741 "anomalies" against about 4,450 for every other kind. The background traffic also has a baseline of about 2.6 % negative legitimate expenses, so that column reads a little high; the shop's own `merchant_name = 'ClickShop'` rows are exact. | Confirmed |
+| D62 | **One agent, `clickshop-analyst`, covers the four workstreams** (observability, web analytics, payments, retail operations), written from the owner's four example prompts. The instructions are the rules and the discipline; **the data dictionary is attached as file context** and is the source of truth for columns and meanings. It replies in English, Spanish or Brazilian Portuguese (Brazilian Portuguese if unclear). It is restricted to a list of tables and to an organization and service id (`<ORG_ID>`, `<SERVICE_ID>`, filled in by the owner). Differences from the examples, all deliberate: the tables that do not exist in the workshop (`funnel_per_second`, `ingestion_throughput`, `pgcdc_retail_db`) are replaced by the real ones (`retail_oltp`, the `analytics_*` rollups); the replicated Postgres data **may** be used for transactional questions (the example said not to unless asked, but revenue and stock need it); the Mastercard BIN range is 51 to 55, not 51 to 54; revenue defaults to orders that are not `pending` or `cancelled`; empty results are checked for staleness before being reported as zero. | Draft: owner reviews |
 
 ## Bootstrap log (Phases 0 and 1)
 
@@ -900,6 +901,6 @@ From the quickstart, the overview and the sharing and memory pages (2026-10-21):
 
 ### Not done
 
-- **The final instructions and questions**: to be written together with the owner (D59).
+- **The final instructions and questions**: a first draft of the instructions was written from the owner's example prompts (D62) and awaits review; the questions are still candidates (D59).
 - **Any step beyond the documentation**: nothing was run in the console.
 - **A check for this module**: there is none; the agent lives in the console.
