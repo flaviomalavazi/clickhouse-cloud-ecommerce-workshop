@@ -41,8 +41,8 @@ The instructions are the part that matters. Their text is in `workshop/09-clickh
 head -5 workshop/09-clickhouse-agents/agents/clickshop-analyst/instructions.md
 ```
 
-- **If it is the final text** (it does not start with `TODO(owner)`): show it in the terminal with `cat`, and tell them to copy it into the **Instructions** field themselves.
-- **If it still starts with `TODO(owner)`**, the workshop's final instructions are not written yet. Say so plainly. Do not present a draft as the official text. Offer to write a first version **with** them from `docs/data-dictionary.md` (section 2, "Rules every query must follow", is the core): they decide the rules, you write them down, and they paste the result. That is a good exercise, not a stopgap.
+- **If it is the final text** (the first lines have no `TODO(owner)`): show it in the terminal with `cat`, and tell them to copy it into the **Instructions** field themselves. It has two placeholders, `<ORG_ID>` and `<SERVICE_ID>`, which they fill in with their own organization and service ids from the console (they are not secrets, but you do not know them: ask them to put them in). The text expects `docs/data-dictionary.md` to be attached to the agent as file context, so tell them to attach it (**File Context**).
+- **If the first lines contain `TODO(owner)`**, the workshop's instructions are still a draft the owner is reviewing. Say so plainly. Do not present a draft as the official text. You may still use it, or offer to write a first version **with** them from `docs/data-dictionary.md` (section 2, "Rules every query must follow", is the core): they decide the rules, you write them down, and they paste the result. That is a good exercise, not a stopgap.
 
 ### 5. `capabilities` [PARTICIPANT DOES — console] What it may do
 
