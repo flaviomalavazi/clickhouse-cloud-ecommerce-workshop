@@ -146,3 +146,11 @@ def test_the_one_command_starts_run_what_their_long_forms_run():
     # The existing long forms keep working: the modules still teach them one by one.
     for name in ("cluster", "images", "secrets", "app", "generators-start", "sim-start", "traffic-stop"):
         assert name in rules
+
+
+def test_doctor_diagnoses_a_missing_buildx_plugin_instead_of_hiding_the_notice():
+    """Docker's "legacy builder is deprecated" notice means buildx is missing: say so once, with the fix, in make doctor."""
+    doctor = (ROOT / "scripts" / "doctor.sh").read_text()
+    assert "docker buildx version" in doctor and "legacy builder" in doctor and "docs.docker.com/go/buildx" in doctor
+    assert "ln -sfn" in doctor and "cli-plugins" in doctor, "for OrbStack it names the link that is missing"
+    assert "docker buildx version" in (ROOT / "scripts" / "checks" / "check-00.sh").read_text()

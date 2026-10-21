@@ -138,7 +138,7 @@ It prints `[n/13]` lines. Use each wait:
 | **Every card payment fails on a new cluster** | `CARD_GATEWAY_DOWN=true` is in `.env` (the gateway reads it from there) | `make doctor` warns about it. Remove the line, and `make apply-env` if the cluster is running. (`make fix-card-gateway` works until the cluster is recreated.) |
 | Search finds nothing, or shows the old stock | `products_search` is rebuilt every five minutes | `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh` then `SYSTEM WAIT VIEW ...` (the first only starts it). |
 | The dashboard's "right now" tiles, or a "last hour" question, are empty | The load is stopped | `make traffic-start`. |
-| A notice about "the legacy builder" during builds | Docker without the buildx plugin | Harmless. |
+| A "legacy builder is deprecated" notice before every image build | Docker has no buildx plugin (on OrbStack its link in `~/.docker/cli-plugins` is missing) | `make doctor` says how to add it. The images build either way, and faster with it. |
 | Events do not arrive in the dashboard, and `make logs S=snowplow-micro` shows schema errors | Snowplow Micro cannot reach Iglu Central (the venue's network) | Allow it, or move network. (Likely cause; not reproduced.) |
 | The ClickPipe is in an error state | Usually IP access, or the pooler address was used | Its page in the console shows the message. |
 

@@ -28,6 +28,20 @@ if ! docker info >/dev/null 2>&1; then
   echo; echo "Fix the above, then run: make doctor"; exit 1
 fi
 ok "docker $(docker version --format '{{.Server.Version}}' 2>/dev/null) ($(docker info --format '{{.OperatingSystem}}'))"
+# Docker builds with BuildKit through its buildx plugin. Without the plugin `docker build` falls back to the legacy builder: the images
+# still build, but slower, and Docker prints a "legacy builder is deprecated" notice before every build. Docker Desktop bundles buildx;
+# OrbStack ships it too, but the Docker CLI only finds a plugin through a link in ~/.docker/cli-plugins.
+if docker buildx version >/dev/null 2>&1; then
+  ok "docker buildx $(docker buildx version 2>/dev/null | awk '{print $2}') (images build with BuildKit)"
+else
+  warn "docker has no buildx plugin: the images still build, but with Docker's legacy builder (slower, and it prints a deprecation notice before every build)"
+  orbstack_buildx=/Applications/OrbStack.app/Contents/MacOS/xbin/docker-buildx
+  if [ -x "$orbstack_buildx" ]; then
+    printf '      OrbStack has it; link it for the Docker CLI:  mkdir -p ~/.docker/cli-plugins && ln -sfn %s ~/.docker/cli-plugins/docker-buildx\n' "$orbstack_buildx"
+  else
+    printf '      Install the buildx plugin: https://docs.docker.com/go/buildx/\n'
+  fi
+fi
 if command -v make >/dev/null 2>&1; then ok "make $(make --version | head -1 | sed 's/GNU Make //')"; else bad "make is not installed"; fi
 # k3d, kubectl and helm run from pinned container images (deploy/bin), so there
 # is nothing to install; `make prefetch` downloads them ahead of the workshop.
