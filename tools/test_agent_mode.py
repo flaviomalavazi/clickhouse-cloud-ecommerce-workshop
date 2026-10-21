@@ -176,6 +176,23 @@ def test_agents_md_keeps_the_golden_rules_the_workshop_depends_on():
         assert must in text, f"AGENTS.md lost: {must}"
 
 
+def test_the_fast_track_is_the_default_and_nobody_is_made_to_choose_first():
+    for name, text in (("AGENTS.md", text_of(AGENTS_MD)), ("agent-mode/README.md", text_of(AGENT_MODE / "README.md")),
+                       (".claude/commands/workshop.md", text_of(ROOT / ".claude" / "commands" / "workshop.md"))):
+        assert "fast track" in text and "default" in text, f"{name} must say the fast track is the default"
+        assert "ask one question" not in text and "Ask once" not in text, f"{name} still asks which track"
+
+
+def test_claude_code_is_denied_the_env_file_but_not_its_template():
+    settings = json.loads(text_of(ROOT / ".claude" / "settings.json"))
+    deny = settings["permissions"]["deny"]
+    assert "Read(./.env)" in deny, "reading .env must be denied"
+    # Read(./.env.*) would also match .env.example, the template the agent and the participant do read.
+    assert not [rule for rule in deny if re.search(r"\.env[.*?\[]", rule)], f"a deny rule that could match .env.example: {deny}"
+    assert "allow" not in settings["permissions"], "the committed settings only restrict"
+    assert set(settings) == {"permissions"}, "nothing else (sandbox, hooks, MCP) rides along in the committed settings"
+
+
 def test_the_progress_file_example_is_valid_json_with_known_statuses():
     readme = text_of(AGENT_MODE / "README.md")
     block = re.search(r"```json\n(.*?)```", readme, flags=re.S).group(1)

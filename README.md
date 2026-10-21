@@ -60,7 +60,7 @@ You can also mix them: `make setup` is safe to run at any point, it skips what i
 
 ## Human mode and agent mode
 
-You can read the modules yourself (**human mode**: this README and `workshop/`), or have a coding agent guide you (**agent mode**): Claude Code, Codex, Cursor, Copilot or another that reads `AGENTS.md`. Open the repository in your agent and say *"start the workshop"* (in Claude Code, `/workshop`). It reads [`AGENTS.md`](AGENTS.md) and the playbooks in [`agent-mode/`](agent-mode/README.md), asks whether you want the one-hour or the step-by-step way, runs the commands, explains each one, and stops where only you can act: the Cloud console and the browser. You do not write code, and you never paste a secret into the chat: you edit `.env` yourself.
+You can read the modules yourself (**human mode**: this README and `workshop/`), or have a coding agent guide you (**agent mode**): Claude Code, Codex, Cursor, Copilot or another that reads `AGENTS.md`. Open the repository (its root folder) in your agent and say *"start the workshop"* (in Claude Code, `/workshop`). It reads [`AGENTS.md`](AGENTS.md) and the playbooks in [`agent-mode/`](agent-mode/README.md), starts on the one-hour way (say so if you would rather go step by step), runs the commands, explains each one, and stops where only you can act: the Cloud console and the browser. You do not write code, and you never paste a secret into the chat: you edit `.env` yourself.
 
 The two modes are separate texts that share the same commands (the `make` targets and `make check-NN`), so both end in the same place.
 

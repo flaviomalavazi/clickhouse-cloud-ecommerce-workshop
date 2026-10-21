@@ -6,7 +6,7 @@ These files are **your** source. They are not the human READMEs in `workshop/`, 
 
 ## The two tracks
 
-Ask once, at the start, and write the answer in the progress file (`track`). The participant may change their mind: switching is fine, because every piece can be built by hand or by `make setup`, and both end in the same state.
+**The fast track is the default.** Start on it without asking: say in a sentence what it means and that step by step is there if they prefer it, and write `track` in the progress file. If they ask for the guided track, use it. The participant may change their mind at any point (slow down, or build one piece by hand): switching is fine, because every piece can be built by hand or by `make setup`, and both end in the same state.
 
 | | **Fast track** (about one hour) | **Guided track** (about three and a half hours) |
 |---|---|---|
@@ -90,6 +90,7 @@ The usual causes, in order: the Docker disk is full (`docker system df`), `.env`
 
 ## For the people who maintain this
 
+- `.claude/settings.json` denies Claude Code reading `.env` (`Read(./.env)` and `Read(**/.env)`); `.env.example` stays readable on purpose. Do not add a pattern such as `.env.*`, which would match it. Claude Code applies the file only when it is started from the repository root.
 - The playbooks are checked by `tools/test_agent_mode.py` (part of `make test`): every `make` target, `check-NN`, file and numbered example query they name exists, every playbook has its sections, and no playbook asks you to run a command that needs a terminal.
 - When a module changes, change its human README **and** its playbook in the same pull request. Phase 10's dry run runs both modes against the same `make check-NN`.
 - The commands a playbook uses are the ones in the `Makefile`. If a playbook needs a new one, add it there, not as a long command inside the playbook.
