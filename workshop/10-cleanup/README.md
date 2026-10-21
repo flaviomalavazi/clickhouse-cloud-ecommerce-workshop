@@ -25,9 +25,10 @@ make down
 
 In the ClickHouse Cloud console:
 
-1. **Delete the ClickPipe first.** It holds a replication slot and a connection to your Postgres instance. If the instance goes first, the pipe is left pointing at nothing.
+1. **Delete the ClickPipe first.** It holds a replication slot (a bookmark Postgres keeps for the pipe) and a connection to your Postgres instance. If the instance goes first, the pipe is left pointing at nothing.
 2. **Delete the Managed Postgres instance.**
-3. **Stop, then delete, the ClickHouse service.**
+3. **Stop, then delete, the ClickHouse service.** ClickStack's sources and connection go with it.
+4. **Delete the API key** you created in module 01 (the organization's **API keys** page). It has the Admin role and would outlive your `.env`. (If you built an agent in module 09, delete it from the Agent Builder too.)
 
 ### 3. Remove your credentials from this machine
 
@@ -53,4 +54,4 @@ No `k3d-clickshop` container, network or volume is left, and the local kubeconfi
 | `check-10` finds containers | `make down` again; if Docker was restarted in between, `docker ps -a --filter name=k3d` shows what is left. |
 | The console will not delete the Postgres instance | Delete its ClickPipe first. |
 
-**That is the workshop.** If you want to run it again, start at [module 00](../00-prerequisites/README.md).
+**That is the workshop.** If you want to run it again, start at [module 01](../01-cloud-services/README.md) (module 00 again only if you removed the Docker images).

@@ -27,7 +27,7 @@ Two seconds. It applies `sql/clickhouse/10_products_search.sql`. Say: it creates
 Force the first build instead of waiting up to five minutes:
 
 ```bash
-make ch-query Q="SYSTEM REFRESH VIEW retail_analytics.products_search_refresh"
+make ch-query Q="SYSTEM REFRESH VIEW retail_analytics.products_search_refresh; SYSTEM WAIT VIEW retail_analytics.products_search_refresh"
 ```
 
 ### 2. `read-the-sql` [AGENT RUNS] Read the index and the view
@@ -91,7 +91,7 @@ make check-04
 
 | Symptom | Diagnose | Fix |
 |---|---|---|
-| `products_search` is empty | `make ch-query Q="SELECT count() FROM retail_analytics.products_search"` | The view has not run: `make ch-query Q="SYSTEM REFRESH VIEW retail_analytics.products_search_refresh"`. If it stays empty, `retail_oltp.products` is empty: back to module 03. |
+| `products_search` is empty | `make ch-query Q="SELECT count() FROM retail_analytics.products_search"` | The view has not run: `make ch-query Q="SYSTEM REFRESH VIEW retail_analytics.products_search_refresh; SYSTEM WAIT VIEW retail_analytics.products_search_refresh"`. If it stays empty, `retail_oltp.products` is empty: back to module 03. |
 | `make ch-search` fails with an unknown table | `make ch-query Q="SHOW TABLES FROM retail_oltp"` | The ClickPipe has not created `retail_oltp.products` yet: wait for the first load (`make clickpipes-wait`). |
 | An error about an unknown index type | `make doctor` shows the ClickHouse version | The service is older than 26.2: new service or upgrade (module 01). |
 | `Storage SharedMergeTree doesn't support FINAL` | Look at the query you ran | `FINAL` on `products_search`: take it off. |

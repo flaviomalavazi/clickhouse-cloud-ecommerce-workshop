@@ -5,7 +5,7 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/_env.sh"
 mkdir -p "$REPO/.workshop/helm"
 
-exec docker run --rm "${tty_flags[@]}" "${net_flags[@]}" "${repo_flags[@]}" \
+exec docker run --rm "${tty_flags[@]}" ${net_flags[@]+"${net_flags[@]}"} "${repo_flags[@]}" \
   -e KUBECONFIG="$KUBECONFIG_IN" \
   -e HELM_CACHE_HOME=/workspace/.workshop/helm/cache \
   -e HELM_CONFIG_HOME=/workspace/.workshop/helm/config \

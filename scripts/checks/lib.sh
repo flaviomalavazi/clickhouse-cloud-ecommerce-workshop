@@ -11,10 +11,22 @@ failures=0
 pass() { printf '  ✓ %s\n' "$*"; }
 fail() { printf '  ✗ %s\n' "$*"; failures=$((failures + 1)); }
 
-# check "what is being asserted" command...   (passes when the command succeeds)
+# check "what is being asserted" command...   (passes when the command succeeds; returns 1 when it does not)
 check() {
   local what=$1; shift
-  if "$@" >/dev/null 2>&1; then pass "$what"; else fail "$what"; fi
+  if "$@" >/dev/null 2>&1; then pass "$what"; else fail "$what"; return 1; fi
+}
+
+# check "..." command || hint "what to do"      the fix, right under the line that failed
+hint() { printf '      -> %s\n' "$*"; }
+
+# The checks of modules 05 and 06 look at the running application. Without the cluster every line would fail,
+# so say so once, with the fix, and stop.
+need_cluster() {
+  if ! docker inspect -f '{{.State.Running}}' k3d-clickshop-server-0 2>/dev/null | grep -q true; then
+    fail "the local cluster is not running: create it with  make cluster images secrets app  (module 05), or run  make setup"
+    finish
+  fi
 }
 
 # All the pods in a namespace are Ready (and there is at least one). A pod that is being deleted

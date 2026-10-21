@@ -32,7 +32,7 @@ The story in one line: **transactions** live in Postgres and reach `retail_oltp`
 
 ## 3. The shop's vocabulary
 
-- **Order status.** The storefront inserts an order as `pending` and, about two seconds later, moves it to `confirmed` (payment accepted) or `cancelled` (payment refused, for example while the card gateway is down). `shipped` and `delivered` exist only in the seeded history: nothing in the workshop moves an order further. The pipe often delivers both changes in one batch, so ClickHouse usually never sees `pending`.
+- **Order status.** The storefront inserts an order as `pending` and, about two seconds later, moves it to `confirmed` (payment accepted) or `cancelled` (payment refused, and the stock put back). One thing to know: a **card** payment is authorized in a separate step *before* the order is written, so while the card gateway is down a card checkout stops there and leaves **no order at all**: that outage shows in the telemetry (`retail_otel`), not in `orders`. A refused Pix or Boleto payment happens after the order was written, so it does leave a `cancelled` order. `shipped` and `delivered` exist only in the seeded history: nothing in the workshop moves an order further. The pipe often delivers both changes in one batch, so ClickHouse usually never sees `pending`.
 - **Payment methods:** `credit_card`, `pix`, `boleto`. About half of the orders pay by card.
 - **Categories:** `it-accessories`, `books`, `shoes`, `clothing`, `electronics`.
 - **The funnel**, in order: `page_view`, `product_click`, `cart_add_to_cart`, `checkout_start`, `checkout_payment_initiated`, `checkout_payment_confirmed`. A session's depth is how many of those it reached in order within an hour (`windowFunnel(3600)`, see `sql/clickhouse/examples/06_real_time_analytics.sql`). About one session in six ends in an order.
@@ -200,6 +200,8 @@ Traces, logs, metrics and session replays of the storefront, its services, the b
 | `clickhouse.query` | `db.statement`, `db.name`, `db.system` |
 | `snowplow.bridge.flush` | `snowplow.events.fetched`, `snowplow.events.inserted` |
 
+A card gateway outage shows as error spans (`StatusCode = 'Error'`) in `demo-card-gateway` and in every service that calls it down the card path (`demo-payment-card-svc`, `demo-checkout-svc`, `demo-storefront-bff`, `retail-demo-frontend`); the one the failure starts in is the deepest of them.
+
 Every span's `ResourceAttributes` has `service.name` and, for the workshop's pods, `k8s.namespace.name`, `k8s.deployment.name`, `k8s.pod.name`, `k8s.pod.uid` and `k8s.node.name`.
 
 ### `otel_logs` (a row per log line)
@@ -223,7 +225,7 @@ One row per recorded browser event: `Timestamp`, `TimestampTime`, `ServiceName`,
 | `retail_oltp.*` | Something changes in Postgres: the seed, a shopper's order (the simulator or a person), `make nuke-data`. |
 | `snowplow_events` | A browser event reaches the bridge, or a generator flushes a batch (at most every 5 s). History: 30 days, loaded once. |
 | `credit_card_transactions` | The card producer flushes a batch, and the web producer writes one for each purchase it generates. |
-| `products_search` | Every 5 minutes, and on `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh`. |
+| `products_search` | Every 5 minutes, and on `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh` (asynchronous: follow it with `SYSTEM WAIT VIEW retail_analytics.products_search_refresh` to wait for the result). |
 | Rollups | In the same insert as the events they summarise. |
 | `retail_otel.*` | Continuously, while the cluster runs. |
 

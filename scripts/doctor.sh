@@ -130,6 +130,12 @@ else
   warn "PGSSLROOTCERT is not set: the Postgres connection is encrypted but the server is not verified (see .env.example)"
 fi
 
+# A stray CARD_GATEWAY_DOWN=true makes every card payment fail on every new cluster (the gateway reads it from here).
+# Module 08 breaks the gateway with `make break-card-gateway`, which is undone with `make fix-card-gateway`.
+if [ "$(get CARD_GATEWAY_DOWN | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+  warn "CARD_GATEWAY_DOWN is true in .env: every card payment will fail. Remove that line (module 08 uses make break-card-gateway instead) and, if the cluster is running, run make apply-env"
+fi
+
 # ── Databases (in the tools container) ───────────────────────────────────────
 echo "Databases"
 if [ "$problems" -gt 0 ]; then
@@ -146,4 +152,4 @@ if [ "$problems" -gt 0 ]; then
   echo "$problems problem(s). Fix them and run: make doctor"
   exit 1
 fi
-echo "All good. Next: make cluster images secrets app"
+echo "All good. Next: make ch-bootstrap, then make pg-setup (module 01), or make setup to do everything at once."

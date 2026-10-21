@@ -47,20 +47,19 @@ You land on the confirmation page with your **order number**.
 
 ### 3. Follow the order into ClickHouse
 
-The storefront wrote the order to **Postgres**: an `orders` row, its `order_items`, and one less unit in `stock`, in one transaction. Now find it in ClickHouse. It arrives after the ClickPipe's next sync, so give it up to a minute. Run `sql/clickhouse/examples/05_run_the_app.sql` in the SQL console, or:
+The storefront wrote the order to **Postgres**: an `orders` row, its `order_items`, and one less unit in `stock`, in one transaction. Now find it in ClickHouse. It arrives after the ClickPipe's next sync, so give it up to a minute. Look it up by the order number on your confirmation page (replace `ORDER_NUMBER`; if you ran `make setup`, the simulated shoppers are placing orders too, so yours is one of many). In the SQL console, or with `make ch-query Q="..."`:
 
 ```sql
 SELECT id, status, payment_method, total_amount, created_at
 FROM retail_oltp.orders FINAL
-WHERE _peerdb_is_deleted = 0
-ORDER BY created_at DESC LIMIT 5;
+WHERE id = ORDER_NUMBER AND _peerdb_is_deleted = 0;
 ```
 
-Your order is the first row, with the status `confirmed`. (It was inserted as `pending` and confirmed about two seconds later; the pipe delivered both changes together, so ClickHouse only has the final one. Module 03 showed you the versions with an order made by hand.) The second query in the file shows what was in it.
+Your order is there, with the status `confirmed`. (It was inserted as `pending` and confirmed about two seconds later; the pipe delivered both changes together, so ClickHouse only has the final one. Module 03 showed you the versions with an order made by hand.) The example file's query 2 shows what was in the newest orders (`make ch-query FILE=sql/clickhouse/examples/05_run_the_app.sql N=2`).
 
 ### 4. Follow the stock into search
 
-The third query in the file compares the stock the replica has with the stock search shows:
+Compare the stock the replica has with the stock search shows, for the products of your order (the example file's query 3 does it for any product):
 
 ```sql
 SELECT s.product_id, s.quantity AS stock_in_replica, ps.stock_quantity AS stock_in_search,
@@ -68,13 +67,14 @@ SELECT s.product_id, s.quantity AS stock_in_replica, ps.stock_quantity AS stock_
 FROM retail_oltp.stock AS s FINAL
 INNER JOIN retail_analytics.products_search AS ps ON ps.product_id = s.product_id
 WHERE s._peerdb_is_deleted = 0
-ORDER BY stale DESC, s.product_id LIMIT 10;
+  AND s.product_id IN (SELECT product_id FROM retail_oltp.order_items FINAL WHERE order_id = ORDER_NUMBER AND _peerdb_is_deleted = 0);
 ```
 
-For a while your product shows `stale = 1`: the replica has the new stock and search does not, until the refreshable view runs, at most five minutes later. Skip the wait:
+For a while your products show `stale = 1`: the replica has the new stock and search does not, until the refreshable view runs, at most five minutes later. Skip the wait:
 
 ```sql
 SYSTEM REFRESH VIEW retail_analytics.products_search_refresh;
+SYSTEM WAIT VIEW retail_analytics.products_search_refresh;
 ```
 
 Run the query again: `stale` is 0, and reloading the product page in the storefront shows the new stock. The whole path, **Postgres, ClickPipe, `retail_oltp`, refreshable view, `products_search`, storefront**, takes the sync interval (a minute at most) plus up to five minutes, or only the sync interval if you refresh the view yourself.
@@ -92,7 +92,7 @@ kubectl get pods -n observability
 helm list -A
 ```
 
-You will see the three nodes, 18 pods in `clickshop`, and in `observability` one OpenTelemetry collector per node plus one for the whole cluster. What the pods are:
+You will see the three nodes, 18 pods in `clickshop` (21 while the generators and the shoppers run), and in `observability` one OpenTelemetry collector per node plus one for the whole cluster. What the pods are:
 
 | Pod | What it is |
 |---|---|

@@ -16,6 +16,8 @@ It must pass. If it does not, go back to `00-prerequisites.md`.
 
 The progress file's `track` says which track they are on (the fast track is the default).
 
+Also see whether this machine is already set up, without opening anything: `test -f .env && echo ".env present"`. If it is, it may be theirs, with their passwords in it: **never copy over it**. Run `make doctor`, and if it passes go straight to step 8 (they may still need the console steps for anything `make doctor` reports missing).
+
 ## Steps
 
 The first six steps are the participant's, in the console at <https://console.clickhouse.cloud>. Give them one at a time, and wait for "done" after each. **They keep every password and secret to themselves**: never ask them to paste one.
@@ -54,10 +56,10 @@ The first line must be `-----BEGIN CERTIFICATE-----`. With it, everything connec
 
 ### 7. `fill-env` [AGENT RUNS] then [PARTICIPANT DOES — console] Fill in `.env`
 
-Create the file for them:
+Create the file for them (`-n` never replaces a `.env` that exists):
 
 ```bash
-cp .env.example .env
+cp -n .env.example .env
 ```
 
 Then tell them to open `.env` in their editor and fill in the **required block** (you never open it): `CLICKHOUSE_HOST` (the host only, no `https://`, no `:8443`), `CLICKHOUSE_USER` (`default`), `CLICKHOUSE_PASSWORD`, `PGHOST` (the **Server**), `PGPORT` (`5432`), `PGUSER` (`postgres`), `PGPASSWORD`, `PGDATABASE` (`clickshop`; the workshop creates it). Also uncomment `PGSSLROOTCERT=assets/certs/ca-certificate.pem`, and, for the fast track, `CLICKHOUSE_CLOUD_API_KEY_ID` and `CLICKHOUSE_CLOUD_API_KEY_SECRET`. Rules: one `KEY=value` per line, **no quotes**, comments on their own lines, LF line endings. Wait for "done".
@@ -98,7 +100,7 @@ make setup
 
 Run it in the background with the log in `.workshop/logs/setup.log` and read the step lines as they appear (`[n/13] ...`). While it runs, use the talking points: this is the time to explain the architecture. When it ends it prints a timing per step and the storefront URL. If the ClickStack step says it could not finish, that is expected on a service where ClickStack has never been opened: module 08 handles it.
 
-Record `"setup_done": true` in the progress file's `notes`.
+Record `"setup_done": true` in the progress file's `notes`. Before you run it, ask them to open **ClickStack** once from their ClickHouse service in the console (a minute: that creates ClickStack's connection to the service). If they have not, `make setup` still builds everything else and ends by saying the ClickStack step is `NOT DONE`: that is the reason, and module 08 fixes it.
 
 ### 12. `check` [AGENT RUNS] The checkpoint
 

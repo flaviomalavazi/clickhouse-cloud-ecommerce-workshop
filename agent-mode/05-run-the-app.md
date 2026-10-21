@@ -61,10 +61,10 @@ They land on a confirmation page with an **order number**: ask for it, and for t
 Say: "The storefront wrote the order to **Postgres**: an `orders` row, its `order_items`, and one less unit in `stock`, in one transaction. It reaches ClickHouse after the ClickPipe's next sync, up to a minute." Poll every 15 seconds:
 
 ```bash
-make ch-query FILE=sql/clickhouse/examples/05_run_the_app.sql N=1
+make ch-query Q="SELECT id, status, payment_method, total_amount, created_at FROM retail_oltp.orders FINAL WHERE id = ORDER_NUMBER AND _peerdb_is_deleted = 0"
 ```
 
-Their order is the first row, with status `confirmed` (it was inserted as `pending` and confirmed about two seconds later; the pipe delivered both changes together, so ClickHouse only has the final one: module 03 showed the versions). Then what was in it:
+With their order number in place of `ORDER_NUMBER`: the shoppers of the fast track are placing orders too, so look it up by number and do not wait for "the newest". The order appears, with status `confirmed` (it was inserted as `pending` and confirmed about two seconds later; the pipe delivered both changes together, so ClickHouse only has the final one: module 03 showed the versions). Then what was in the newest orders:
 
 ```bash
 make ch-query FILE=sql/clickhouse/examples/05_run_the_app.sql N=2
@@ -72,16 +72,19 @@ make ch-query FILE=sql/clickhouse/examples/05_run_the_app.sql N=2
 
 ### 5. `follow-stock` [AGENT RUNS] Follow the stock into search
 
-```bash
-make ch-query FILE=sql/clickhouse/examples/05_run_the_app.sql N=3
-```
-
-For a while their product shows `stale = 1`: the replica has the new stock and search does not, until the refreshable view runs (at most five minutes later). Skip the wait:
+The products of their order only (query 3 of the example file does it for any product, and with the shoppers running its ten rows are other people's):
 
 ```bash
-make ch-query Q="SYSTEM REFRESH VIEW retail_analytics.products_search_refresh"
-make ch-query FILE=sql/clickhouse/examples/05_run_the_app.sql N=3
+make ch-query Q="SELECT s.product_id, s.quantity AS stock_in_replica, ps.stock_quantity AS stock_in_search, s.quantity != ps.stock_quantity AS stale FROM retail_oltp.stock AS s FINAL INNER JOIN retail_analytics.products_search AS ps ON ps.product_id = s.product_id WHERE s._peerdb_is_deleted = 0 AND s.product_id IN (SELECT product_id FROM retail_oltp.order_items FINAL WHERE order_id = ORDER_NUMBER AND _peerdb_is_deleted = 0)"
 ```
+
+For a while their products show `stale = 1`: the replica has the new stock and search does not, until the refreshable view runs (at most five minutes later). Skip the wait:
+
+```bash
+make ch-query Q="SYSTEM REFRESH VIEW retail_analytics.products_search_refresh; SYSTEM WAIT VIEW retail_analytics.products_search_refresh"
+```
+
+(`SYSTEM REFRESH VIEW` only starts the refresh; `SYSTEM WAIT VIEW` waits until it is done, so the next query sees the result.) Run the products query again.
 
 `stale` is now `0`; they reload the product page and see the new stock. The whole path, **Postgres, ClickPipe, `retail_oltp`, refreshable view, `products_search`, storefront**, takes the sync interval plus up to five minutes, or only the sync interval if the view is refreshed by hand.
 
@@ -98,7 +101,7 @@ deploy/bin/helm list -A
 make status
 ```
 
-Three nodes, 18 pods in `clickshop`, and in `observability` one OpenTelemetry collector per node plus one for the whole cluster. Explain the pods in groups: `frontend` (the Next.js storefront: reads and writes Postgres, reads ClickHouse for search and the dashboard); the 14 small services the checkout calls (`storefront-bff`, `catalog-svc`, `checkout-svc`, pricing, inventory, the three payment services and their gateways, `order-svc`, `ledger-svc`, `email-gateway`: they hold no data, they exist so that traces in module 08 have something to show); `snowplow-micro` and `snowplow-bridge` (behaviour events go to Snowplow Micro, the bridge inserts them into ClickHouse); `otel-gateway` (the ClickStack collector: everything observable lands there, then in `retail_otel`). `make status` also shows the row count and freshness of every table in both databases.
+Three nodes, 18 pods in `clickshop` (21 while the generators and the shoppers run), and in `observability` one OpenTelemetry collector per node plus one for the whole cluster. Explain the pods in groups: `frontend` (the Next.js storefront: reads and writes Postgres, reads ClickHouse for search and the dashboard); the 14 small services the checkout calls (`storefront-bff`, `catalog-svc`, `checkout-svc`, pricing, inventory, the three payment services and their gateways, `order-svc`, `ledger-svc`, `email-gateway`: they hold no data, they exist so that traces in module 08 have something to show); `snowplow-micro` and `snowplow-bridge` (behaviour events go to Snowplow Micro, the bridge inserts them into ClickHouse); `otel-gateway` (the ClickStack collector: everything observable lands there, then in `retail_otel`). `make status` also shows the row count and freshness of every table in both databases.
 
 ### 7. `check` [AGENT RUNS] The checkpoint
 

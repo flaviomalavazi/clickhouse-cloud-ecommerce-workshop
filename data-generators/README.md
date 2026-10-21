@@ -308,7 +308,7 @@ scripts/with-env.sh python data-generators/simulator/simulate.py --url http://lo
 
 | Symptom | Fix |
 |---|---|
-| The web producer stops with "products_search is empty" | Module 04: `make ch-search`, then `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh`. |
+| The web producer stops with "products_search is empty" | Module 04: `make ch-search`, then `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh` and `SYSTEM WAIT VIEW retail_analytics.products_search_refresh`. |
 | `[ERROR] CLICKHOUSE_HOST is not set` | The pod has no credentials: `make secrets`, then `make apply-env`. |
 | Inserts are slow or time out | The network to ClickHouse Cloud, or `CH_BATCH_ROWS` too high for it. The flush line shows `ms`. |
 | The simulator warns `SIM_SESSIONS is short` | Arrivals it cannot serve are dropped: raise `USERS`, lower `SIM_ARRIVALS_PER_MINUTE`, or lower `SIM_DWELL_SCALE`. |

@@ -8,7 +8,7 @@
 
 ## Before you start
 
-- A laptop with 8 GB of memory and 4 CPUs to spare for Docker, and about 10 GB of free disk.
+- A laptop with 8 GB of memory and 4 CPUs to spare for Docker, and about 10 GB of free disk (15 GB is comfortable: `make doctor` calls less than that tight).
 - A ClickHouse Cloud account where you can create a service and a Managed Postgres instance.
 - A browser, and an internet connection.
 
@@ -35,7 +35,7 @@ Tested on macOS (Apple silicon) with OrbStack. Docker Desktop and Colima work th
    make prefetch
    ```
 
-   It pulls the tool images and the Kubernetes node image, builds the six workshop images (storefront, demo services, Snowplow bridge, OpenTelemetry gateway, generators, simulator), pulls Snowplow Micro and the OpenTelemetry collector, downloads the collector's Helm chart and pulls the ClickHouse client image. It needs the internet **once**. Run it again whenever you like; whatever is already there is skipped.
+   It pulls the tool images and the Kubernetes node image, builds the tools image (Python and `psql`, for the database tasks) and the six workshop images (storefront, demo services, Snowplow bridge, OpenTelemetry gateway, generators, simulator), pulls Snowplow Micro and the OpenTelemetry collector, downloads the collector's Helm chart and pulls the ClickHouse client image. It needs the internet **once**. Run it again whenever you like; whatever is already there is skipped.
 
 5. **Check:**
 
@@ -45,7 +45,7 @@ Tested on macOS (Apple silicon) with OrbStack. Docker Desktop and Colima work th
 
 ## Checkpoint
 
-`make check-00` prints a ✓ for each of: Docker running, 8 GB and 4 CPUs, 10 GB of free disk, the tool images downloaded, the six workshop images built, the collector chart downloaded, and port 3000 free. It ends with `All checks passed`.
+`make check-00` prints a ✓ for each of: Docker running, 8 GB and 4 CPUs, 10 GB of free disk, the tools image built, the tool images downloaded, the six workshop images built, the collector chart downloaded, and port 3000 free. It ends with `All checks passed`.
 
 The workshop needs the internet while it runs too: Snowplow Micro fetches event schemas from Iglu Central, and the Cloud services are, of course, in the cloud.
 

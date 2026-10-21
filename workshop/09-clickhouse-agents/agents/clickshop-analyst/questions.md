@@ -14,7 +14,7 @@
 | 6 | Card anomalies | "How many card transactions look corrupted, and of which kind?" | `credit_card_transactions` | `06_real_time_analytics.sql` N=5 | counts every negative amount (chargebacks are negative by design), or sums across currencies |
 | 7 | Catalogue | "Which categories have the most discounted active products, and what is the average discount?" | `products_search` | SQL 3 | treats `original_price = 0` as a price, or adds `FINAL` to `products_search` |
 | 8 | Two systems | "For the orders placed on the storefront, what was each shopper's first page and traffic source?" | `retail_oltp.orders` and `snowplow_events` | SQL 4 | joins on the wrong key; most orders have no `domain_userid` (only the real ones do) |
-| 9 | Orders and traces | "Were any orders cancelled, and what happened in the services when they were?" | `retail_oltp.orders` and `retail_otel.otel_traces` | SQL 5 | needs module 08's gateway exercise first (until then nothing is cancelled); joins on a made-up key |
+| 9 | Failures | "Were card payments failing in the last hour, and which service does the failure start in?" | `retail_otel.otel_traces` | SQL 5 | looks for cancelled orders (a refused card payment leaves no order at all), or blames the service with the most errors instead of the deepest one on the card path (`demo-card-gateway`) |
 | 10 | Performance | "Which services are slowest at the 95th percentile?" | `retail_otel.otel_traces` | SQL 6 | reads `Duration` as milliseconds (it is nanoseconds), or mixes span kinds |
 
 Ordered roughly from easy to hard: 1 to 4 need one table or one database, 5 and 6 need a rule, 7 to 10 cross databases or need domain knowledge. Questions 3, 5 and 6 are where an agent without the data dictionary in its instructions most often fails, which is the point of module 09, step 6.
@@ -72,19 +72,15 @@ WHERE o.domain_userid != '' AND o._peerdb_is_deleted = 0
 GROUP BY o.id, o.payment_method ORDER BY o.id DESC LIMIT 10
 ```
 
-**SQL 5, orders by status, and the same checkouts as the services saw them**
+**SQL 5, error spans per service and window** (it shows rows only while the card gateway is failing: module 08's exercise, or a stray `CARD_GATEWAY_DOWN=true` in `.env`)
 
 ```sql
-SELECT payment_method, status, count() AS orders
-FROM retail_oltp.orders FINAL
-WHERE _peerdb_is_deleted = 0 AND created_at >= now() - INTERVAL 1 DAY
-GROUP BY payment_method, status ORDER BY payment_method, status;
-
-SELECT SpanAttributes['clickshop.payment_method'] AS payment_method,
-       SpanAttributes['clickshop.order_status'] AS status, count() AS checkouts
+SELECT toStartOfFiveMinutes(Timestamp) AS window, ServiceName, count() AS error_spans
 FROM retail_otel.otel_traces
-WHERE SpanName = 'checkout.place_order' AND Timestamp > now() - INTERVAL 1 DAY
-GROUP BY payment_method, status ORDER BY payment_method, status
+WHERE StatusCode = 'Error' AND Timestamp > now() - INTERVAL 1 HOUR
+GROUP BY window, ServiceName
+ORDER BY window DESC, error_spans DESC
+LIMIT 20
 ```
 
 **SQL 6, slowest services**
@@ -101,4 +97,4 @@ GROUP BY ServiceName ORDER BY p95_ms DESC LIMIT 10
 - How many questions the workshop uses, and in what order (the table above is easy to hard).
 - Which ones are a **demo** (the facilitator asks, the room watches) and which are for the participant to run.
 - What counts as "revenue", which decides the answer to question 1.
-- Whether question 9 stays (it only works after module 08's exercise) or becomes part of that module's debrief.
+- Whether question 9 stays (it only has an answer while the card gateway is failing: after module 08's exercise) or becomes part of that module's debrief.

@@ -54,9 +54,11 @@ The story the workshop tells:
 
 **The one-hour way.** Create the two Cloud services and an API key, fill in `.env` ([module 01](workshop/01-cloud-services/README.md)), and run **`make setup`**. It builds everything modules 01 to 08 build by hand (the ClickPipe and the ClickStack sources through the Cloud API, search, the real-time rollups, the local cluster and application, 30 days of history, the live generators and the browser shoppers) in about ten minutes (once `make prefetch` from module 00 has built the images), so the hour goes on reading the modules, looking at what was built and exploring it in ClickHouse Cloud.
 
-**The slow way.** Follow the modules in order. Each one describes the same steps by hand, ends with a check (`make check-NN`) and leaves the system working. Module 02 is optional.
+**The slow way.** Follow the modules in order. Each one describes the same steps by hand, ends with a check (`make check-NN`; module 09 lives in the console, so it has none) and leaves the system working. Module 02 is optional.
 
 You can also mix them: `make setup` is safe to run at any point, it skips what is done, and every piece has its own command (`make clickpipes`, `make ch-search`, `make ch-mvs`, `make clickstack-setup`, ...).
+
+After `make setup` everything already runs, so each module becomes a tour: its check passes from the start and the steps that create things change nothing. Note that `make setup` leaves the generators and the shoppers running: they write about 200 events and 20 card transactions a second into your ClickHouse service until you run `make traffic-stop`.
 
 ## Human mode and agent mode
 
@@ -82,7 +84,24 @@ Times are for a first run by hand, including the waiting.
 | 09 | [ClickHouse Agents](workshop/09-clickhouse-agents/README.md) | Build an agent, ask the data questions in plain language, check its answers *(draft: being verified in the console)* | 25 min |
 | 10 | [Cleanup](workshop/10-cleanup/README.md) | Remove everything, in the right order | 10 min |
 
-About four hours by hand, and about one hour with `make setup`. If you are running this for a group, ask everyone to finish module 00 beforehand.
+About four hours by hand, and about one hour with `make setup`. If you are running this for a group, ask everyone to finish module 00 beforehand, and read the [facilitator guide](workshop/FACILITATOR.md).
+
+## Words you will meet
+
+| Word | What it is here |
+|---|---|
+| **ClickHouse Cloud service** | The managed ClickHouse database you create in module 01. |
+| **Managed Postgres** | ClickHouse Cloud's managed PostgreSQL. The shop's orders and catalogue live there. |
+| **ClickPipe** | A managed ingestion job. Here it copies every change in Postgres into ClickHouse. |
+| **CDC** (change data capture) | Reading the database's write-ahead log to copy each change as it happens, with no triggers and no application code. |
+| **ReplacingMergeTree, `FINAL`** | A table that stores every version of a row and removes the old ones later. `FINAL` reads only the latest version. |
+| **Text index** | ClickHouse's full-text index; `hasAllTokens` and `hasAnyTokens` search with it. |
+| **Materialized view** | A query that runs on every insert and stores its result in another table. A *refreshable* one reruns on a schedule instead. |
+| **Snowplow** | The open-source behaviour tracker the storefront uses. Snowplow Micro is its small collector, and Iglu is where it fetches its event schemas. |
+| **OpenTelemetry** | The standard for traces, logs and metrics. A collector sends them to ClickHouse. |
+| **ClickStack** | ClickHouse's observability product: the screens over those traces, logs, metrics and session replays. |
+| **k3d** | Kubernetes running inside Docker containers, so your laptop needs nothing else installed. |
+| **ClickHouse Agents** | ClickHouse Cloud's conversational agents (Beta) that answer questions about your data. |
 
 ## What you need
 

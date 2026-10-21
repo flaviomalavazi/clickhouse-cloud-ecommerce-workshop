@@ -15,6 +15,8 @@ make check-07
 deploy/bin/kubectl -n clickshop get deploy simulator
 ```
 
+(`READY 1/1` means the shoppers are running; `NotFound` means they are not.)
+
 `check-07` must pass (or the participant chose to move on), and the simulator must be running: the screens need traffic. If it is not: `make sim-start USERS=4` and wait a few minutes. Nothing needs installing: everything the cluster observes is already flowing.
 
 ## Steps

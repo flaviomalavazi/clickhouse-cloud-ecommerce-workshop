@@ -56,7 +56,7 @@ The pipe appears in the integrations list. Click its name to watch its status. T
 
 ### 2. See what the pipe created
 
-Run SQL in the console's SQL console, or in a terminal with `make ch-client`.
+Run SQL in the console's SQL console, or from your terminal: `make ch-query Q="SHOW TABLES FROM retail_oltp"` runs one statement and prints the result (put the SQL in double quotes, it usually has single quotes inside), and `make ch-client` opens a prompt. The queries in `sql/clickhouse/examples/` are numbered, and `make ch-query FILE=sql/clickhouse/examples/03_cdc_dedup.sql N=1` runs number 1.
 
 ```sql
 SHOW TABLES FROM retail_oltp;
@@ -96,7 +96,7 @@ SELECT id, status, _peerdb_version, _peerdb_is_deleted
 FROM retail_oltp.orders WHERE id = ORDER_ID ORDER BY _peerdb_version;
 ```
 
-The row shows up after the next sync: with the 60 second interval, within about a minute (when we tested with a 30 second interval, a change took 30 to 32 seconds). Now confirm the order in Postgres:
+The row shows up after the next sync: with the 60 second interval, within about a minute (measured: a change arrived 38 to 63 seconds later with the 60 second interval). Now confirm the order in Postgres:
 
 ```sql
 UPDATE orders SET status = 'confirmed', updated_at = now() WHERE id = ORDER_ID;
@@ -120,7 +120,7 @@ Finally, delete it in Postgres (`DELETE FROM orders WHERE id = ORDER_ID;`) and l
 
 ### 4. Count orders the wrong way and the right way
 
-`sql/clickhouse/examples/03_cdc_dedup.sql` has the queries for this. Run them in order. The one to remember is the status count: **without `FINAL`, an order that changed status is counted once for each version**, so every report that reads a replicated table needs `FINAL` and the `_peerdb_is_deleted = 0` filter (or the `argMax` form).
+`sql/clickhouse/examples/03_cdc_dedup.sql` has the queries for this. Run them in order, number 1 to 5 (`make ch-query FILE=sql/clickhouse/examples/03_cdc_dedup.sql N=1`, then `N=2`, and so on). The counts differ only by the orders that changed status, which can be a handful on the seeded data and grows with every order the shoppers confirm. The one to remember is the status count: **without `FINAL`, an order that changed status is counted once for each version**, so every report that reads a replicated table needs `FINAL` and the `_peerdb_is_deleted = 0` filter (or the `argMax` form).
 
 > **Why the storefront will not show you this.** When the app places an order it inserts it as `pending` and confirms it about two seconds later. The pipe takes both changes in one batch and ClickHouse only ever has the `confirmed` row. That is why you made an order by hand.
 
@@ -130,7 +130,7 @@ Finally, delete it in Postgres (`DELETE FROM orders WHERE id = ORDER_ID;`) and l
 make check-03
 ```
 
-All six tables are in `retail_oltp`, each has the `_peerdb_` columns, and the row counts match Postgres, read with `FINAL`. (The order you made and deleted is gone from both sides.)
+All six tables are in `retail_oltp`, each has the `_peerdb_` columns, and the row counts match Postgres, read with `FINAL`. (The order you made and deleted is gone from Postgres, and from ClickHouse once you read it with `FINAL` and the delete filter: its three versions stay there, the last one marked deleted.)
 
 ## Troubleshooting
 
@@ -141,7 +141,7 @@ All six tables are in `retail_oltp`, each has the `_peerdb_` columns, and the ro
 | `check-03` says it is not in step | The pipe is behind. Wait one sync interval (up to a minute) and run it again. |
 | `make clickpipes` says `401` or `403` | The API key is wrong or is not an Admin key (module 01). |
 | `make clickpipes` fails on the certificate | `PGSSLROOTCERT` in `.env` must point at the Postgres CA file: the pipe verifies your server with it. |
-| `Preserve NULL values` was on | The tables have `Nullable` columns. Everything still works, but the rest of the workshop assumed it off. Create the pipe again. |
+| `Preserve NULL values` was on | The tables have `Nullable` columns. Everything still works, but the rest of the workshop assumed it off. Delete the pipe in the console, drop the tables it made (`make ch-query Q="DROP DATABASE retail_oltp"`, then `make ch-bootstrap` creates the empty database again), and create the pipe again with the setting off. |
 | You want to restart the data | `make nuke-data` truncates Postgres, empties the mirror, reseeds and waits for the pipe. `make pg-reset` alone leaves ClickHouse out of step, because the pipe ignores TRUNCATE. |
 
 ## Going further

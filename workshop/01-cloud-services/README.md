@@ -12,7 +12,7 @@
 
 ## Before you start
 
-`make check-00` passes (module 00).
+`make check-00` passes (module 00), and you have a ClickHouse Cloud account (an organization) where you can create a service and a Managed Postgres instance. Both are billed while they exist: [module 10](../10-cleanup/README.md) removes them.
 
 ## The fast path: the one-hour workshop
 
@@ -23,6 +23,8 @@ make setup
 ```
 
 It does the rest of modules 01 to 08 for you, in the right order: the ClickHouse databases, the Postgres migrations, the **ClickPipe** (through the Cloud API), the Postgres data, product search, the real-time rollups, the local cluster and the application, the **ClickStack sources** (through the API), 30 days of history, the live generators and the simulated shoppers. It takes about ten minutes once the images are built (`make prefetch`, module 00) and prints what it is doing, so the hour goes on reading and exploring, not on setting up. Every step is safe to repeat: if one fails, fix it and run `make setup` again. What exists is recognised and left alone: a ClickPipe you made by hand, the ClickStack sources, and the 30 days of history, which are loaded once. Then go through the modules to see what was built and why, in any order; each one describes the same steps by hand.
+
+One thing to do before you run it: open **ClickStack** once from your ClickHouse service in the console (that creates its connection to your service). If you forget, `make setup` still builds everything else and tells you at the end to open ClickStack and run `make clickstack-setup`.
 
 Or take the slow way: skip the API key (step 6) and follow every module in turn.
 
@@ -40,7 +42,7 @@ In the same organisation, create a **Managed Postgres** instance in the **same r
 
 ### 3. Decide who can reach it
 
-Both services are reachable from the internet and protected by a password and TLS. Allow access from your laptop's IP address. The ClickPipe you create in module 03 runs inside ClickHouse Cloud, and its addresses are allowed by default; if you restrict the instance by IP, you also have to allow the ClickPipes addresses for your region (they are listed in the ClickHouse documentation).
+Both services are reachable from the internet and protected by a password and TLS. Allow access from your laptop's IP address (the instance's **IP access** setting). The ClickPipe you create in module 03 runs inside ClickHouse Cloud: if you restrict the instance by IP, you also have to allow the ClickPipes addresses for your region (they are listed in the ClickHouse documentation).
 
 The risk to understand: "allow from anywhere" is the easy setting for a workshop, and it means anyone who learns the password can connect. Use a strong password, do not reuse one, and delete both services in [module 10](../10-cleanup/README.md).
 
@@ -61,10 +63,10 @@ On the instance's **Settings** tab, download the CA certificate. Save it in this
 ### 7. Fill in `.env`
 
 ```bash
-cp .env.example .env
+cp -n .env.example .env
 ```
 
-Open `.env` and fill in the **required block**:
+(`-n` never replaces a `.env` you already have: your passwords are in it.) Open `.env` and fill in the **required block**:
 
 | Key | Where it comes from |
 |---|---|
@@ -106,7 +108,7 @@ It checks Docker, ports, and `.env` (every value is printed **masked**), then co
   ✓ ClickHouse 26.x (needs 26.2+)
   ✓ Postgres 18.x (TLS, wal_level=logical)
 
-All good. Next: make cluster images secrets app
+All good. Next: make ch-bootstrap, then make pg-setup (module 01), or make setup to do everything at once.
 ```
 
 ### 9. Create the databases and clickstream tables
@@ -146,6 +148,7 @@ Every line is a ✓: `.env` complete, ClickHouse answers and is recent enough, P
 | `PGPORT is the pooler's port` | You copied the PgBouncer connection. Use the direct one on 5432. |
 | `has quotes` / `has a comment after the value` | Remove the quotes; move the comment to its own line. |
 | `has Windows line endings` | Save `.env` with LF line endings. |
+| `Postgres wal_level is ... the ClickPipe needs 'logical'` | `wal_level = logical` is a setting of the Postgres instance, not something the workshop changes. Check that `PGHOST` is the Managed Postgres instance's own server name, and tell your facilitator if it is. |
 | `Postgres: could not connect` | The instance may still be starting; check **IP access** allows your address; check the host and password. |
 | `certificate verify failed` | `PGSSLROOTCERT` points at the wrong file, or `PGHOST` is not the instance's own host name. |
 | `PGSSLROOTCERT=... was not found` | The path is relative to the repo root: `assets/certs/ca-certificate.pem`. |

@@ -121,9 +121,28 @@ def find_service(services: list[dict], host: str) -> dict | None:
     return None
 
 
+def format_ids(ctx: Context) -> str:
+    """The two ids an agent's instructions need, one per line (they are not secrets)."""
+    return f"organization id  {ctx.organization_id}\nservice id       {ctx.service_id}   ({ctx.service_name})"
+
+
 def context_from_env(api: CloudAPI | None = None, env=os.environ) -> tuple[CloudAPI, Context]:
     api = api or CloudAPI.from_env(env)
     host = env.get("CLICKHOUSE_HOST", "").strip()
     if not host:
         raise SystemExit("ERROR: CLICKHOUSE_HOST is not set in .env")
     return api, api.context(host, env.get("CLICKHOUSE_CLOUD_ORGANIZATION_ID", "").strip())
+
+
+def main() -> int:
+    """`cloud_api.py ids`: print the organization id and the service id of the service in .env."""
+    import sys
+    if sys.argv[1:] != ["ids"]:
+        sys.exit("usage: cloud_api.py ids")
+    print(format_ids(context_from_env()[1]))
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

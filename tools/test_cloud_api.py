@@ -75,3 +75,8 @@ def test_a_missing_key_is_explained():
     with pytest.raises(SystemExit, match="API key"):
         CloudAPI.from_env({})
     assert CloudAPI.from_env({"CLICKHOUSE_CLOUD_API_KEY_ID": "k", "CLICKHOUSE_CLOUD_API_KEY_SECRET": "s"}).auth == ("k", "s")
+
+
+def test_the_two_ids_an_agent_needs_are_printed_one_per_line():
+    out = cloud_api.format_ids(cloud_api.Context("org-1", "svc-1", "clickshop")).splitlines()
+    assert out[0].endswith("org-1") and out[1].split()[2] == "svc-1" and "(clickshop)" in out[1]
