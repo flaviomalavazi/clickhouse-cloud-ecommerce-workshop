@@ -12,7 +12,7 @@ For the person who runs ClickShop for a group: what to arrange before the day, h
 | What the facilitator does | Makes sure the services exist and the machines are ready; steers the tours. | Same, and walks the room through the waits. |
 | Ends with | Everything running locally and in the Cloud; the checks pass. | Same. |
 
-Both can be done by reading the modules ([human mode](../README.md)) or with a coding agent that guides the participant ([agent mode](../agent-mode/README.md): open the repository in the agent and say "start the workshop"). They end in the same place, because they share the same commands and the same checks.
+Both can be done by reading the modules ([human mode](../README.md)) or with a coding agent that guides the participant ([agent mode](../agent-mode/README.md): open the repository in the agent and say "start the workshop"). They end in the same place, because they share the same commands and the same checks. **Languages:** the participants' guide is in English ([README.md](../README.md)) and in Spanish ([README.es.md](../README.es.md), the modules in `workshop/es/`); in agent mode the agent asks which one to speak. This guide, `docs/` and the agent's playbooks are in English only.
 
 What the participant builds, in one sentence: an online shop whose **orders live in Postgres and are copied to ClickHouse as they happen**, whose **clicks and card payments go straight to ClickHouse**, whose **traces, logs and replays go to ClickStack on the same service**, and which they can then **question in plain language**.
 
@@ -166,3 +166,4 @@ Settled by the owner: Managed Postgres, Postgres CDC ClickPipes and ClickHouse A
 4. Shared organization or one each, and how the services' credentials reach the participants (pre-provisioning for the one-hour format).
 5. The console steps of modules 01 and 03, walked through once on a clean organization (the labels were confirmed in the Phase 7 review; the flow has not been timed).
 6. A rehearsal on a second machine and a fresh organization, filling in the "Your run" column.
+7. A read of the Spanish pages by a native speaker (`README.es.md`, `workshop/es/`): they were translated from the English and are checked for structure (same steps, commands and links, no English left, one register), not for style. The console's labels stay in English in them, because the console is.
