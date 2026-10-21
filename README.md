@@ -11,7 +11,7 @@ You will:
 5. stream synthetic **clickstream and card transactions** straight into ClickHouse and watch a real-time analytics dashboard;
 6. let **browser-driven shoppers** place real orders that change Postgres and flow into ClickHouse;
 7. observe the whole system in **ClickStack**: traces and the service map, logs with full-text search, session replays and Kubernetes infrastructure;
-8. explore the data with **ClickHouse Agents**.
+8. explore the data with **ClickHouse Agents**, and, if you want, watch what the agent does with **Langfuse Cloud** (an optional final step, [in module 09](workshop/09-clickhouse-agents/langfuse.md)).
 
 ## What you will build
 
@@ -49,6 +49,8 @@ The story the workshop tells:
 - **Transactions** live in Postgres. The CDC ClickPipe brings them into ClickHouse within seconds.
 - ClickHouse **joins both** for analytics, and powers **search** from the replicated catalogue.
 - **ClickStack** observes the whole system on the same engine.
+
+The full picture (the four data paths, the checkout, how fresh each thing is) is in [docs/architecture.md](docs/architecture.md).
 
 ## Two ways to follow it
 
@@ -156,6 +158,7 @@ data-generators/          the generators and the simulator (see its README)
 deploy/                   the k3d cluster, the Helm charts, the tool wrappers
 tools/                    the database tasks (seed, SQL runner, checks)
 scripts/                  doctor, and the module checks in scripts/checks/
+docs/architecture.md      the deeper dive: data paths, the checkout, observability, the local platform
 docs/data-dictionary.md   every table and column, the join keys and the rules for querying them
 docs/decisions.md         why things are the way they are
 ```

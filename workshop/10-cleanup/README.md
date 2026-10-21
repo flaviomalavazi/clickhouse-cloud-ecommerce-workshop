@@ -28,7 +28,7 @@ In the ClickHouse Cloud console:
 1. **Delete the ClickPipe first.** It holds a replication slot (a bookmark Postgres keeps for the pipe) and a connection to your Postgres instance. If the instance goes first, the pipe is left pointing at nothing.
 2. **Delete the Managed Postgres instance.**
 3. **Stop, then delete, the ClickHouse service.** ClickStack's sources and connection go with it.
-4. **Delete the API key** you created in module 01 (the organization's **API keys** page). It has the Admin role and would outlive your `.env`. (If you built an agent in module 09, delete it from the Agent Builder too.)
+4. **Delete the API key** you created in module 01 (the organization's **API keys** page). It has the Admin role and would outlive your `.env`. (If you built an agent in module 09, delete it from the Agent Builder too. If you did the [optional Langfuse step](../09-clickhouse-agents/langfuse.md), delete the Langfuse project, or at least its API keys, and remove the Langfuse settings from ClickHouse Agents: they hold your conversations and a secret key.)
 
 ### 3. Remove your credentials from this machine
 

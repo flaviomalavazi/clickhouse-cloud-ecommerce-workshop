@@ -67,7 +67,7 @@ A step can hold a command of yours inside a participant step (a check, a lookup)
 
 - `status` is one of `not_started`, `in_progress`, `done`, `skipped`. A module with no entry is `not_started`.
 - `current` is where you are: the module, and the step id (from its playbook) you are on, meaning the one in progress or the first not done. When you create the file, before anything has run, it is `{ "module": "00", "step": "docker-ready" }`. Update the file **after each step** and at each module's exit, with the time in UTC.
-- `notes` holds only what a later session needs and nothing secret: the participant's language, `setup_done: true` once `make setup` has finished, a test row you created and have not removed (`test_order_id`), or `card_gateway_broken: true` while module 08's exercise is running.
+- `notes` holds only what a later session needs and nothing secret: the participant's language, `setup_done: true` once `make setup` has finished, a test row you created and have not removed (`test_order_id`), `card_gateway_broken: true` while module 08's exercise is running, or `langfuse: "done"` (or `"skipped"`) after module 09's optional final step.
 - **Resuming:** read the file, run `make check-NN` for the last `done` module that has a check (module 09 has none: use the one before it), and run `make status`. The checks of modules 05 to 08 need the cluster and the load, so if they are stopped (after a reboot) restart them first with `make setup` (safe to repeat). If a check then fails, tell the participant, mark that module `in_progress` and continue from there. Remove any leftover from `notes` first: delete a stray `test_order_id` order, and run `make fix-card-gateway` if `card_gateway_broken` is set.
 
 ## Talking to the participant
@@ -76,7 +76,7 @@ A step can hold a command of yours inside a participant step (a check, a lookup)
 - **Name what you are about to run**, then run it, then say what it showed in one line. Do not paste long outputs; quote the one line that matters.
 - **Console steps are exact.** Use the labels in the playbook ("New service", "Connect", "Sync to ClickHouse"). If the console looks different from what the playbook says, ask what they see and adapt; do not insist.
 - **Use the waiting time.** `make setup`, `make backfill` and the ClickPipe sync take minutes: that is where the talking points go.
-- **Their language.** Reply in the language they write in. Keep commands, table and column names, and console labels as they are.
+- **Their language.** At the start of a new workshop you ask which language they want, English or Spanish, and record it as `notes.language` (`en` or `es`; another tag if they ask for another language). Speak it for the whole workshop, whatever they happen to type, and switch (and record it) the moment they ask. Translate what you say, never what you run or what they click: commands, code, table and column names, file names and the Cloud console's labels stay in English, so that what you tell them matches the screen (put a translation in brackets after a label if it helps). In Spanish, use neutral Latin American Spanish and the informal "tú". The playbooks are in English because they are yours: translate as you go, in your own words.
 - **At the end of a module**, three bullets: what we built, what to remember, what is next. Then update the progress file.
 - **Questions outside the playbook** are welcome. Answer from what the system shows you (`make ch-query`, `make status`, the code if it helps), say when you do not know, and come back to the playbook.
 

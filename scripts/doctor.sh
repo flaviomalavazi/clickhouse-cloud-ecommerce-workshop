@@ -144,10 +144,10 @@ else
   warn "PGSSLROOTCERT is not set: the Postgres connection is encrypted but the server is not verified (see .env.example)"
 fi
 
-# A stray CARD_GATEWAY_DOWN=true makes every card payment fail on every new cluster (the gateway reads it from here).
-# Module 08 breaks the gateway with `make break-card-gateway`, which is undone with `make fix-card-gateway`.
+# CARD_GATEWAY_DOWN=true makes the card gateway fail on every new cluster. That is on purpose when the facilitator wants ClickStack to
+# have errors to show, so it is information, not a warning: say it, so that nobody takes the failing card payments for a fault.
 if [ "$(get CARD_GATEWAY_DOWN | tr '[:upper:]' '[:lower:]')" = "true" ]; then
-  warn "CARD_GATEWAY_DOWN is true in .env: every card payment will fail. Remove that line (module 08 uses make break-card-gateway instead) and, if the cluster is running, run make apply-env"
+  ok "CARD_GATEWAY_DOWN=true: card payments fail on purpose (the ClickStack exercise); make fix-card-gateway repairs them on a running cluster"
 fi
 
 # ── Databases (in the tools container) ───────────────────────────────────────

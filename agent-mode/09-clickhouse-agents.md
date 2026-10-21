@@ -2,9 +2,9 @@
 
 **Objective:** the participant builds an analyst with **ClickHouse Agents** in the Cloud console, asks it questions about the data they built, learns to check an answer against SQL, and improves the agent by improving its instructions.
 
-**Step ids:** `check-ready`, `explain-agents`, `open-agents`, `create-agent`, `capabilities`, `first-questions`, `check-an-answer`, `improve-instructions`, `share-and-memory`, `fallback-sql`.
+**Step ids:** `check-ready`, `explain-agents`, `open-agents`, `create-agent`, `capabilities`, `first-questions`, `check-an-answer`, `improve-instructions`, `share-and-memory`, `fallback-sql`, `langfuse-monitoring`.
 
-**Time:** about 25 minutes (an estimate, not timed); fast-track tour about 8.
+**Time:** about 25 minutes (an estimate, not timed); fast-track tour about 8. The optional final step, `langfuse-monitoring`, adds about 15 and is not part of the total.
 
 **Beta, and not yet walked through in the console.** ClickHouse Agents is a Beta feature and its screens are in the console, where you cannot see them. The labels below come from ClickHouse's documentation. **If the participant's screen differs, trust the screen**: ask what they see and adapt, and do not insist on a label. Several things the documentation does not say are still being checked by the workshop's owner (how the agent reaches the service's data, which database role it uses, whether that is read-only, trial availability): never state them as facts, and do not invent screens, labels or prompts.
 
@@ -83,6 +83,24 @@ Keep it to a minute. **Sharing:** the agent's **Share** dialog (search a person 
 
 Say honestly that this part depends on a Beta feature that is not available to them right now. Then do the useful half anyway: ask them a business question and write the SQL together with `make ch-query`, using the data dictionary. A few that use everything at once: revenue by payment method (`retail_oltp.orders FINAL`, `_peerdb_is_deleted = 0`); the conversion of sessions to orders (the funnel, number 2 of `sql/clickhouse/examples/06_real_time_analytics.sql`, against the orders of module 07); the slowest `clickhouse.query` spans (`retail_otel.otel_traces`). Mark the module `skipped` with the reason in `notes`.
 
+### 11. `langfuse-monitoring` [PARTICIPANT DOES — console] Optional final step: monitor the agent with Langfuse Cloud
+
+**Offer it, never require it**, and only if the agent exists and answered questions (steps 4 to 8 done): "There is an optional last step: watching what your analyst does behind each answer (the model's calls, the SQL it ran, the time and the cost) in Langfuse Cloud, a free tracing service. It takes about 15 minutes. Want to do it, or go on to cleanup?" If they decline: set `notes.langfuse` to `skipped` and move on.
+
+**Both halves are in a browser, and the keys never pass through you.** The participant creates a Langfuse secret key and pastes it into the ClickHouse console themselves. Never ask them to show it to you, and never put it in `.env` or a file (nothing in the workshop uses it). If a key appears in the chat anyway, do not repeat it, and tell them to delete that key pair in Langfuse and create another. Say, before they start, that a trace keeps the whole conversation (their questions, the instructions, the SQL and the rows the agent saw): the workshop's data is synthetic, so that is fine here, but they should not connect a Langfuse project to an agent that reads real customer data without their organization's agreement.
+
+Tell them what they need: an email address, an **organization admin** role in ClickHouse Cloud (ClickHouse's changelog of 17 August 2026 says that administrators can open the matching Langfuse session from a ClickHouse Agents chat, in **Public Beta**, **for newly created chats only**), and a few minutes. Then, one sub-step at a time, waiting for "done" after each:
+
+1. **Create the account.** "Open <https://cloud.langfuse.com> (the EU region) or <https://us.cloud.langfuse.com> (the US region), click **Sign up** and create the account with your email, then confirm the email. Pick one region and stay in it: an account, its projects and its keys belong to the region where you signed up, and a key from one region does not work in the other. The free **Hobby** plan is enough and asks for no card."
+2. **Create an organization and a project.** "Langfuse asks for an organization (for example `clickshop-workshop`) and then a project (`clickshop-analyst`). Skip inviting anyone."
+3. **Create the API keys.** "In the project open **Settings**, then **API Keys**, and click **Create new API key**. Langfuse shows a **public key** (`pk-lf-...`), a **secret key** (`sk-lf-...`, shown only once: copy it now) and the host for your region (`https://cloud.langfuse.com` for EU, `https://us.cloud.langfuse.com` for US). Do not paste any of it here."
+4. **Enter them in ClickHouse Agents.** **The workshop's owner has not yet documented where this is (TODO(owner)), and neither has ClickHouse**: say so, and do not invent a screen or a label. Ask what they see: look for an organization-level setting for agents, then the agent's own settings; the screen asks for the same three things (public key, secret key, host). They enter them, save, and **start a new chat**, because only new chats are traced. If after two attempts they find no such place, stop here: steps 1 to 3 are still a useful account for later. Set `notes.langfuse` to `skipped`, with the reason in your reply, and go on.
+5. **Ask something worth tracing.** In a new conversation with `clickshop-analyst`: a one-table question (revenue by payment method), a two-database question (the first page and traffic source of the orders), and one that it should get wrong without a rule (how many card transactions look corrupted). Meanwhile run the check yourself (`make ch-query`, as in step 6), so that you know the right answers.
+6. **Read the traces.** "In Langfuse open the project, then **Tracing**: **Traces** has one row per question and **Sessions** groups the traces of one conversation (if the labels differ, trust the screen). Open the trace of the third question and tell me what you see: the input and the output, the tool calls (the SQL it ran against your service), the latency, and the tokens and cost." Ask them to read out the SQL from the tool call (SQL is not a secret), run it with `make ch-query Q="..."` and compare it with what the agent answered, as in step 7.
+7. **Close the loop.** If they changed the instructions in step 8, ask the same question in a new chat and compare the two traces: did the SQL, the time and the cost change? Longer instructions cost tokens on every question, so every rule has to earn its place.
+
+Set `notes.langfuse` to `done`, so that module 10 reminds them to delete the Langfuse project and keys.
+
 ## Talking points
 
 - **An agent is instructions, a model and tools.** The model is the same for everyone; what you know about your business, and write into the instructions, is what makes the agent yours.
@@ -90,6 +108,7 @@ Say honestly that this part depends on a Beta feature that is not available to t
 - **Never trust, always check:** the SQL it ran, the time window, the units and the currency, and the numbers against a query you trust. An answer without its SQL cannot be checked.
 - **Instructions are where domain knowledge goes:** `FINAL` on replicated tables, USD versus the card's currency, chargebacks negative by design, what "revenue" means. Each rule in the data dictionary is a mistake an agent would otherwise make.
 - **Beta:** behaviour and screens may change; the habit of checking does not.
+- **A trace is the agent's flight recorder:** one trace per question and one session per conversation, with the model's calls, the SQL it ran, the latency and the cost. The habit of step 7 (never trust, always check) gets easier when the SQL is already in front of you, and the cost of an instruction shows up in the tokens.
 
 ## Checkpoint
 
@@ -104,12 +123,14 @@ There is no automated check for this module: the agent lives in the console. The
 | The agent says it cannot reach the data | `make doctor` confirms the service itself is fine | Its tools are not set up for the service: look at **Capabilities** and **Add Tools** (step 5). After two attempts, step 10. |
 | Its numbers differ from `make ch-query` | Compare its SQL with yours | The usual causes: no `FINAL` or no `_peerdb_is_deleted = 0` on `retail_oltp`; inactive products counted; `bill_value` summed across currencies; negative card amounts counted on chargebacks; another time window. |
 | It finds nothing for "the last hour" | `make status` shows how old each table is | The load is stopped: `make traffic-start`. |
-| Question 9 (card payment failures) shows nothing | `make ch-query Q="SELECT ServiceName, count() FROM retail_otel.otel_traces WHERE StatusCode = 'Error' AND Timestamp > now() - INTERVAL 1 HOUR GROUP BY ServiceName"` | There is nothing to find until the card gateway fails: module 08's exercise. That is not an error. A card failure leaves no order, so do not look for cancelled orders. |
+| Nothing appears in Langfuse | Ask: did they start a **new** chat after saving the keys (only new chats are traced), is the host the one of the region where they signed up, and are they an organization admin? | Fix the one that is wrong. A key pair works only in its own region: create a new pair if in doubt. If there is no place to enter the keys, set `notes.langfuse` to `skipped` and go on. |
+| They lost the Langfuse secret key | n/a | It is shown only once: create another pair and delete the old one. |
+| Question 9 (card payment failures) shows nothing | `make ch-query Q="SELECT ServiceName, count() FROM retail_otel.otel_traces WHERE StatusCode = 'Error' AND Timestamp > now() - INTERVAL 1 HOUR GROUP BY ServiceName"` | There is nothing to find until the card gateway fails: from the start if `CARD_GATEWAY_DOWN=true` is in their `.env`, otherwise module 08's exercise. That is not an error. A card failure leaves no order, so do not look for cancelled orders. |
 
 ## Fast track
 
-`make setup` built and loaded everything, so there is nothing to prepare: steps 1 and 2, then the console steps 3, 4, 5 and 6 in about 8 minutes, step 7 (checking one answer) and step 8 (one improvement), which are the point of the module. Skip step 9 unless they ask.
+`make setup` built and loaded everything, so there is nothing to prepare: steps 1 and 2, then the console steps 3, 4, 5 and 6 in about 8 minutes, step 7 (checking one answer) and step 8 (one improvement), which are the point of the module. Skip step 9 unless they ask, and offer step 11 only if there is time.
 
 ## Exit criteria
 
-The checkpoint above, or the module was skipped with the reason in `notes`. Update the progress file: module `09` `done` or `skipped`; `current` module `10`.
+The checkpoint above, or the module was skipped with the reason in `notes`. Update the progress file: module `09` `done` or `skipped`; `current` module `10`; and `notes.langfuse` `done` or `skipped` if you offered step 11 (module 10 reads it).

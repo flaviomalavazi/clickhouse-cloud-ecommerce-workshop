@@ -72,7 +72,7 @@ WHERE o.domain_userid != '' AND o._peerdb_is_deleted = 0
 GROUP BY o.id, o.payment_method ORDER BY o.id DESC LIMIT 10
 ```
 
-**SQL 5, error spans per service and window** (it shows rows only while the card gateway is failing: module 08's exercise, or a stray `CARD_GATEWAY_DOWN=true` in `.env`)
+**SQL 5, error spans per service and window** (it shows rows only while the card gateway is failing: from the start when `CARD_GATEWAY_DOWN=true` is in `.env`, as it is in the demo, or after module 08's exercise)
 
 ```sql
 SELECT toStartOfFiveMinutes(Timestamp) AS window, ServiceName, count() AS error_spans
@@ -97,4 +97,4 @@ GROUP BY ServiceName ORDER BY p95_ms DESC LIMIT 10
 - How many questions the workshop uses, and in what order (the table above is easy to hard).
 - Which ones are a **demo** (the facilitator asks, the room watches) and which are for the participant to run.
 - What counts as "revenue", which decides the answer to question 1.
-- Whether question 9 stays (it only has an answer while the card gateway is failing: after module 08's exercise) or becomes part of that module's debrief.
+- Whether question 9 stays (it only has an answer while the card gateway is failing: from the start in the demo, where `CARD_GATEWAY_DOWN=true` is in `.env`, otherwise after module 08's exercise) or becomes part of that module's debrief.
