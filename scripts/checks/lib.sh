@@ -54,7 +54,7 @@ finish() {
 run_db_check() {
   local module=$1
   [ -f "$REPO/.env" ] || { fail ".env not found: run  cp .env.example .env  and fill it in (module 01)"; return; }
-  docker image inspect clickshop-tools >/dev/null 2>&1 || "$REPO/scripts/docker-build.sh" -q -t clickshop-tools "$REPO/tools" >/dev/null
+  docker image inspect clickshop-tools >/dev/null 2>&1 || docker build -q -t clickshop-tools "$REPO/tools" >/dev/null
   if ! docker run --rm --env-file "$REPO/.env" -v "$REPO":/workspace:ro clickshop-tools python /app/tools/module_checks.py "$module" > /tmp/clickshop-check-$$.out 2>&1; then
     failures=$((failures + 1))
   fi

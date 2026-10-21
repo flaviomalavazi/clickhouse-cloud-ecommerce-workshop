@@ -141,7 +141,7 @@ echo "Databases"
 if [ "$problems" -gt 0 ]; then
   warn "skipped until the problems above are fixed"
 else
-  docker image inspect clickshop-tools >/dev/null 2>&1 || scripts/docker-build.sh -q -t clickshop-tools tools >/dev/null
+  docker image inspect clickshop-tools >/dev/null 2>&1 || docker build -q -t clickshop-tools tools >/dev/null
   if ! docker run --rm --env-file .env -v "$PWD":/workspace:ro clickshop-tools python /app/tools/doctor_checks.py; then
     problems=$((problems + 1))
   fi
