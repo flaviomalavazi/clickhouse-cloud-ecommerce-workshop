@@ -30,15 +30,15 @@ KUBECTL=deploy/bin/kubectl
 # name | build context | extra docker build arguments
 build() {
   case $1 in
-    frontend)        docker build -q --target production \
+    frontend)        scripts/docker-build.sh -q --target production \
                        --build-arg NEXT_PUBLIC_BASE_URL=http://localhost:3000 \
                        -t clickshop-frontend:$TAG frontend ;;
-    demo-service)    docker build -q -t clickshop-demo-service:$TAG services/demo-service ;;
-    snowplow-bridge) docker build -q -t clickshop-snowplow-bridge:$TAG snowplow-bridge ;;
-    otel-gateway)    docker build -q -t clickshop-otel-gateway:$TAG otel-collector ;;
-    producers)       docker build -q -t clickshop-producers:$TAG \
+    demo-service)    scripts/docker-build.sh -q -t clickshop-demo-service:$TAG services/demo-service ;;
+    snowplow-bridge) scripts/docker-build.sh -q -t clickshop-snowplow-bridge:$TAG snowplow-bridge ;;
+    otel-gateway)    scripts/docker-build.sh -q -t clickshop-otel-gateway:$TAG otel-collector ;;
+    producers)       scripts/docker-build.sh -q -t clickshop-producers:$TAG \
                        -f data-generators/producers/Dockerfile data-generators ;;
-    simulator)       docker build -q -t clickshop-simulator:$TAG \
+    simulator)       scripts/docker-build.sh -q -t clickshop-simulator:$TAG \
                        -f data-generators/simulator/Dockerfile data-generators ;;
     *) echo "unknown image: $1" >&2; return 2 ;;
   esac

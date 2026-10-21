@@ -39,7 +39,7 @@ check-env:
 	@test -f .env || { echo "ERROR: .env not found. Run: cp .env.example .env  and fill in the required block."; exit 1; }
 
 tools-image: ## Build the clickshop-tools image (psql + Python database tasks)
-	@docker build -q -t $(TOOLS_IMAGE) tools >/dev/null
+	@scripts/docker-build.sh -q -t $(TOOLS_IMAGE) tools >/dev/null
 
 # ── Postgres (module 02) ─────────────────────────────────────────────────────
 pg-setup: check-env tools-image ## Create the database, apply the schema, seed the catalogue (idempotent)
@@ -89,10 +89,10 @@ pg-query: check-env tools-image ## Run SQL on Postgres without a prompt: Q="SELE
 
 test: tools-image ## Run the Python unit tests (tools, Snowplow bridge, generators)
 	@docker run --rm -v "$(CURDIR)":/workspace:ro $(TOOLS_IMAGE) python -m pytest /app/tools -q
-	@docker build -q -t clickshop-snowplow-bridge snowplow-bridge >/dev/null
+	@scripts/docker-build.sh -q -t clickshop-snowplow-bridge snowplow-bridge >/dev/null
 	@docker run --rm -v "$(CURDIR)/snowplow-bridge":/app -w /app clickshop-snowplow-bridge \
 	  sh -c 'pip install -q --disable-pip-version-check --root-user-action=ignore pytest && python -m pytest -q'
-	@docker build -q -t clickshop-producers -f data-generators/producers/Dockerfile data-generators >/dev/null
+	@scripts/docker-build.sh -q -t clickshop-producers -f data-generators/producers/Dockerfile data-generators >/dev/null
 	@docker run --rm -v "$(CURDIR)/data-generators":/dg -w /dg clickshop-producers \
 	  sh -c 'pip install -q --disable-pip-version-check --root-user-action=ignore pytest && python -m pytest -q tests'
 
@@ -122,7 +122,7 @@ cloud-ids: check-env tools-image ## Print your Cloud organization id and service
 	@$(TOOLS_RUN) python /app/tools/cloud_api.py ids
 
 notebook: check-env tools-image ## Open the notebook that creates the ClickPipe (JupyterLab on http://localhost:8888)
-	@docker build -q -t clickshop-notebook -f notebooks/Dockerfile notebooks >/dev/null
+	@scripts/docker-build.sh -q -t clickshop-notebook -f notebooks/Dockerfile notebooks >/dev/null
 	@echo "JupyterLab on http://localhost:8888 (Ctrl+C to stop); open 01_create_clickpipes.ipynb"
 	@docker run --rm -it -p 127.0.0.1:8888:8888 --env-file .env -v "$(CURDIR)":/workspace:ro \
 	  -v "$(CURDIR)/notebooks":/workspace/notebooks clickshop-notebook
