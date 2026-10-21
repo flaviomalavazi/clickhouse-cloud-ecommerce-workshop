@@ -24,7 +24,7 @@ hint() { printf '      -> %s\n' "$*"; }
 # so say so once, with the fix, and stop.
 need_cluster() {
   if ! docker inspect -f '{{.State.Running}}' k3d-clickshop-server-0 2>/dev/null | grep -q true; then
-    fail "the local cluster is not running: create it with  make cluster images secrets app  (module 05), or run  make setup"
+    fail "the local cluster is not running: create it with  make up  (module 05), or run  make setup"
     finish
   fi
 }

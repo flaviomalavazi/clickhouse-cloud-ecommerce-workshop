@@ -18,8 +18,10 @@
 ### 1. Start the cluster and the application
 
 ```bash
-make cluster images secrets app
+make up
 ```
+
+`make up` runs four commands, one after the other (typed out: `make cluster images secrets app`). What each one does:
 
 | Command | What it does |
 |---|---|
@@ -118,7 +120,7 @@ Every pod is ready, the storefront answers on port 3000, the catalogue loads fro
 
 | Symptom | Fix |
 |---|---|
-| `make cluster` says port 3000 is in use | Stop what uses it, then `make down` and `make cluster` again. |
+| `make cluster` says port 3000 is in use | Stop what uses it, then `make down` and `make up` again. |
 | Pods stay `ImagePullBackOff` | The images were not loaded: run `make images`. |
 | `make app` times out | `make status` shows which pods are not ready, and `make logs S=<pod name>` why. A frontend that cannot reach Postgres or ClickHouse is the usual cause: `make doctor`. |
 | The storefront shows an error page | `make logs S=frontend`. |
@@ -131,6 +133,6 @@ Every pod is ready, the storefront answers on port 3000, the catalogue loads fro
 
 - `make logs S=otel-gateway` shows the collector exporting to ClickHouse.
 - Everything the chart deploys is in `deploy/helm/clickshop/`; `values.yaml` lists the services, their latency and their memory.
-- `make down` removes the cluster when you want your machine back. Nothing in the cloud is touched, and `make cluster images secrets app` brings it back in two minutes.
+- `make down` removes the cluster when you want your machine back. Nothing in the cloud is touched, and `make up` brings it back in two minutes (`make start` brings back the generators and the shoppers too).
 
 **Next:** [module 06, Real-time analytics](../06-real-time-analytics/README.md).

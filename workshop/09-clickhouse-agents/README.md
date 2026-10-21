@@ -14,7 +14,7 @@
 ## Before you start
 
 - `make check-08` passes (module 08).
-- The data is flowing. Questions about "the last hour" or "right now" need the generators and the shoppers running: `make status` shows the freshness of every table, and `make generators-start` and `make sim-start USERS=4` start them (`make setup` leaves them running).
+- The data is flowing. Questions about "the last hour" or "right now" need the generators and the shoppers running: `make status` shows the freshness of every table, and `make traffic-start` starts them (`make setup` leaves them running).
 - ClickHouse Agents is a **Beta** feature of ClickHouse Cloud. Creating an agent needs the **Create agent** option; if you do not see **Create New Agent** below, an organization admin has to grant it.
 
 > **TODO(owner): verify in the console.** The documentation does not say: whether the feature is available in trial organizations; the exact name and place of the permission (the quickstart says "Admin Settings", the sharing page does not use that name); which model options the dropdown shows (the launch post says Claude Sonnet and Haiku are the defaults).
@@ -92,7 +92,7 @@ There is no automated check: the agent lives in the console. You are done when:
 | There is no **Create New Agent** button | You need the **Create agent** option: an organization admin grants it. |
 | The agent says it cannot reach your data | Its tools are not set up for the service. See the note in step 3. (TODO(owner): document the fix.) |
 | The numbers differ from your own SQL | Read its SQL (step 5). The usual causes: no `FINAL` or no `_peerdb_is_deleted = 0` on a `retail_oltp` table, inactive products counted, `bill_value` summed across currencies, a different time window. |
-| It finds nothing for "the last hour" | The load is stopped: `make status` shows how old each table is; `make generators-start` and `make sim-start USERS=4`. |
+| It finds nothing for "the last hour" | The load is stopped: `make status` shows how old each table is; `make traffic-start`. |
 | It counts `negative` card amounts as anomalies and the number is huge | Chargebacks are negative by design. The instructions must say to look at `expense` rows only (see the data dictionary). |
 
 ## Going further

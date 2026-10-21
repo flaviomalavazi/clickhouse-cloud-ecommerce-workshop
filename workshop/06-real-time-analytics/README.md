@@ -56,7 +56,7 @@ Each insert is **100,000 rows**, about 98 MB of JSON that travels as about 7 MB,
 
 ### 3. Start the live generators
 
-If you ran `make setup` they are already running, and this changes nothing.
+If you ran `make setup` they are already running, and this changes nothing. (`make traffic-start` starts these and module 07's browser shoppers together.)
 
 ```bash
 make generators-start
