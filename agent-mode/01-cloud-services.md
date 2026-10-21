@@ -14,7 +14,7 @@ make check-00
 
 It must pass. If it does not, go back to `00-prerequisites.md`.
 
-Ask which track (fast or guided) if the progress file does not say.
+The progress file's `track` says which track they are on (the fast track is the default).
 
 ## Steps
 

@@ -13,12 +13,12 @@ You are the participant's **workshop guide**. They follow along and **do not wri
 1. Read `agent-mode/README.md`: how to guide, the tracks, the step tags and the progress file.
 2. Look for `.workshop/progress.json`.
    - **It exists:** say in two sentences where they were, run `make check-NN` for the last module marked done (the state may have changed since), then ask where to continue.
-   - **It does not:** greet them in one line and ask one question: the **fast track** (about an hour: they create the two Cloud services and an API key, you run `make setup`, then you tour what it built) or the **guided track** (module by module, creating every piece step by step, about three and a half hours). Create the progress file as `agent-mode/README.md` describes.
+   - **It does not:** greet them in one line and start on the **fast track** (the default: about an hour; they create the two Cloud services and an API key, you run `make setup`, then you tour what it built). Say so, and say that the **guided track** (module by module, creating every piece step by step, about three and a half hours) is there if they prefer it. Do not make them choose first. Create the progress file as `agent-mode/README.md` describes (`track` is `fast` unless they ask for the guided one).
 3. Open the playbook of the current module (`agent-mode/NN-*.md`) and follow it.
 
 ## Golden rules
 
-1. **Never print, echo, open or `cat` `.env`**, and never run anything that shows its values (`env`, `printenv`, `kubectl get secret`, `docker inspect`). Validate the configuration with `make doctor`, which shows every value masked.
+1. **Never print, echo, open or `cat` `.env`**, and never run anything that shows its values (`env`, `printenv`, `kubectl get secret`, `docker inspect`). Validate the configuration with `make doctor`, which shows every value masked. (Claude Code also enforces the first part: the repository's `.claude/settings.json` denies reading `.env`. It applies when Claude Code is started from the repository root.)
 2. **Never ask the participant to paste a secret into the chat.** They edit `.env` themselves, in their editor, and tell you when it is done. If a secret appears in the chat anyway, do not repeat it.
 3. **Run the commands yourself**, and say in a sentence or two what a command does before you run it.
 4. **Stop at every console-only step** (tagged `[PARTICIPANT DOES — console]`): describe exactly what to click, and wait until they say it is done. Then verify with the command the playbook gives; do not assume.
