@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# The cluster's lifecycle, behind `make cluster` and `make down`.
+# The cluster's lifecycle, behind `make cluster`, `make stop` and `make down`.
 #
 #   deploy/cluster.sh up     create the cluster (or start it again), write the kubeconfig
+#   deploy/cluster.sh stop   stop its containers and keep everything in them
 #   deploy/cluster.sh down   delete the cluster and everything that belongs to it
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -34,10 +35,21 @@ case ${1:-} in
       > .workshop/kubeconfig
     deploy/bin/kubectl wait --for=condition=Ready nodes --all --timeout=120s
     ;;
+  stop)
+    # The containers keep the application, the images loaded into the nodes and the Helm values,
+    # so `make up` brings it back as it was, the load included if it was running.
+    if exists; then
+      quiet "$K3D" cluster stop "$NAME"
+      echo "cluster '$NAME' stopped: the application and its images are kept, the Cloud services keep running"
+      echo "start it again with:  make up  (as it was, the load too if it was running), or  make start  (with the load)"
+    else
+      echo "cluster '$NAME' does not exist: nothing to stop"
+    fi
+    ;;
   down)
     if exists; then quiet "$K3D" cluster delete "$NAME"; else echo "cluster '$NAME' does not exist"; fi
     rm -rf .workshop/kubeconfig .workshop/imported
     ;;
   *)
-    echo "usage: $0 up|down" >&2; exit 2 ;;
+    echo "usage: $0 up|stop|down" >&2; exit 2 ;;
 esac

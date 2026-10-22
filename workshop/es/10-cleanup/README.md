@@ -21,6 +21,8 @@ make down
 
 `make down` elimina el clúster de k3d: los tres contenedores de nodo y el balanceador de carga, su red y su volumen, y todo lo que se ejecutaba dentro de ellos. No se toca nada en la nube y tus imágenes de Docker se conservan (son lo que hace que el próximo inicio tarde dos minutos en lugar de diez). Bórralas también si quieres recuperar el espacio en disco: `docker image prune -a` elimina todas las imágenes sin usar, así que úsalo solo si nada más de lo tuyo las necesita.
 
+¿Solo haces una pausa para volver otro día? Entonces no limpies: `make stop` detiene el clúster y lo conserva, y `make up` lo trae de vuelta tal como estaba. Los servicios en la nube siguen en ejecución (y consumiendo crédito) hasta que los detengas en la consola.
+
 ### 2. Elimina los servicios en la nube, en este orden
 
 En la consola de ClickHouse Cloud:

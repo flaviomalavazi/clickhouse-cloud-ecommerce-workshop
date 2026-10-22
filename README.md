@@ -138,7 +138,8 @@ Run `make help` for the full list. The ones you will use:
 | `make check-NN` | check the end of module NN |
 | `make apply-env` | after changing `.env`: update the cluster |
 | `make nuke-data` | put orders and inventory back to the seed (events and telemetry are kept) |
-| `make down` | delete the local cluster |
+| `make stop` | stop the local cluster and keep it: `make up` brings it back as it was, in about two minutes |
+| `make down` | delete the local cluster (your Docker images stay) |
 
 ## One configuration file
 

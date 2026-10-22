@@ -75,7 +75,7 @@ def test_a_script_uses_nothing_bash_3_2_lacks(script):
 
 NEEDS_THE_CLUSTER = ("$(KUBECTL)", "$(HELM)", "deploy/images.sh", "deploy/secrets.sh", "deploy/bin/kubectl")
 # Targets that create it, remove it, report on it, or only prefetch; the guards themselves.
-EXEMPT = {"cluster": "creates it", "down": "says the cluster does not exist", "status": "prints 'no cluster: run make cluster'",
+EXEMPT = {"cluster": "creates it", "stop": "says the cluster does not exist", "down": "says the cluster does not exist", "status": "prints 'no cluster running: run make up'",
           "prefetch": "builds and downloads, needs no cluster", "need-cluster": "the guard", "need-app": "the guard"}
 # `if $(APP_UP) ...; else nothing to stop`: a stop command succeeds when there is nothing to stop.
 STOP_COMMANDS = {"generators-stop", "sim-stop", "traffic-stop"}

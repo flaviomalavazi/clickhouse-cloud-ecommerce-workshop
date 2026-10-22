@@ -133,6 +133,7 @@ Every pod is ready, the storefront answers on port 3000, the catalogue loads fro
 
 - `make logs S=otel-gateway` shows the collector exporting to ClickHouse.
 - Everything the chart deploys is in `deploy/helm/clickshop/`; `values.yaml` lists the services, their latency and their memory.
+- `make stop` stops the cluster and keeps it, to pause until another day: `make up` brings it back as it was (the load too, if it was running).
 - `make down` removes the cluster when you want your machine back. Nothing in the cloud is touched, and `make up` brings it back in two minutes (`make start` brings back the generators and the shoppers too).
 
 **Next:** [module 06, Real-time analytics](../06-real-time-analytics/README.md).

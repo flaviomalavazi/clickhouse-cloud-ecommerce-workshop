@@ -31,7 +31,7 @@ TOOLS_TTY := docker run --rm -it --env-file .env -v "$(CURDIR)":/workspace:ro $(
 .PHONY: help check-env tools-image doctor prefetch cluster images secrets apply-env app otel-k8s setup notebook \
         pg-setup pg-migrate pg-seed pg-reset psql ch-query pg-query clickpipes clickpipes-status clickpipes-wait clickpipes-delete clickstack-setup clickstack-list ch-bootstrap ch-search ch-mvs ch-client \
         need-cluster need-app cloud-ids up start traffic-start generators-start generators-stop backfill backfill-run sim-start sim-stop traffic-stop \
-        break-card-gateway fix-card-gateway status logs down nuke-data \
+        break-card-gateway fix-card-gateway status logs stop down nuke-data \
         test images-webp dev-frontend
 
 help: ## List the commands
@@ -147,7 +147,7 @@ CLUSTER_UP   := docker inspect -f '{{.State.Running}}' $(CLUSTER_NODE) 2>/dev/nu
 APP_UP       := $(CLUSTER_UP) && $(HELM) status clickshop -n $(NS) >/dev/null 2>&1
 
 need-cluster:
-	@$(CLUSTER_UP) || { echo "ERROR: the local cluster is not running. Create it with:  make up  (module 05), or run  make setup"; exit 1; }
+	@$(CLUSTER_UP) || { echo "ERROR: the local cluster is not running. Start or create it with:  make up  (module 05), or run  make setup"; exit 1; }
 
 need-app: need-cluster
 	@$(HELM) status clickshop -n $(NS) >/dev/null 2>&1 || { echo "ERROR: the application is not installed in the cluster. Install it with:  make up  (module 05), or run  make setup"; exit 1; }
@@ -250,7 +250,7 @@ fix-card-gateway: need-app ## Bring the card gateway back
 
 # ── Operations ───────────────────────────────────────────────────────────────
 status: check-env tools-image ## Pods, then row counts and freshness of the workshop tables
-	@$(KUBECTL) get pods -n $(NS) -o wide 2>/dev/null || echo "no cluster: run make up"
+	@$(KUBECTL) get pods -n $(NS) -o wide 2>/dev/null || echo "no cluster running: run make up"
 	@$(KUBECTL) get pods -n observability 2>/dev/null || true
 	@echo
 	@$(TOOLS_RUN) python /app/tools/status.py
@@ -264,6 +264,9 @@ logs: need-cluster ## Follow the logs of a service, or of a Job such as backfill
 check-%: ## Check a module's result: make check-05 (see scripts/checks)
 	@test -x scripts/checks/check-$*.sh || { echo "no check for module $*"; exit 2; }
 	@scripts/checks/check-$*.sh
+
+stop: ## Stop the cluster and keep it (the app, the loaded images); make up or make start brings it back
+	@deploy/cluster.sh stop
 
 down: ## Delete the cluster and everything in it (the databases are not touched)
 	@deploy/cluster.sh down

@@ -133,6 +133,7 @@ Todos los pods están listos, la tienda responde en el puerto 3000, el catálogo
 
 - `make logs S=otel-gateway` muestra al collector exportando a ClickHouse.
 - Todo lo que despliega el chart está en `deploy/helm/clickshop/`; `values.yaml` lista los servicios, su latencia y su memoria.
+- `make stop` detiene el clúster y lo conserva, para hacer una pausa hasta otro día: `make up` lo trae de vuelta tal como estaba (también la carga, si estaba en marcha).
 - `make down` elimina el clúster cuando quieras recuperar tu computadora. No se toca nada en la nube, y `make up` lo trae de vuelta en dos minutos (`make start` trae de vuelta también los generadores y los compradores).
 
 **Siguiente:** [módulo 06, Analítica en tiempo real](../06-real-time-analytics/README.md).

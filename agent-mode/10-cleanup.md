@@ -18,6 +18,8 @@ They are done or stopping. Read `notes` in the progress file and put right what 
 
 "Cleanup removes four things, in this order: the local cluster, the cloud services (you do that, in the console), the Admin API key, and the credentials on this machine. The order matters because of what depends on what. Do you want to clean up now, or keep things running?" If they keep things running: mark the module `not_started` and tell them module 10 is there when they want it, and that the cloud services cost money while they exist and that the live generators keep writing into their ClickHouse service until `make traffic-stop`.
 
+If they are only pausing, to continue another day, do not clean up: `make stop` stops the cluster and keeps it (no need to ask, nothing is deleted), and `make up` brings it back as it was, the load included. Say that the cloud services keep running and using credit until they stop them in the console, and leave the module `in_progress`.
+
 ### 2. `stop-load` [AGENT RUNS] Stop the load (ask first)
 
 "This stops the live generators and the browser shoppers. Nothing is deleted."
