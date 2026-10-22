@@ -114,7 +114,7 @@ There are confirmed orders with all three payment methods since the seed, and th
 | `failed` keeps rising | Orders are being refused. `make logs S=frontend`; if you ran `make break-card-gateway` in module 08, run `make fix-card-gateway`. |
 | No orders after several minutes | `make logs S=simulator` for errors; `make doctor` for the databases. |
 | The join returns nothing | The ClickPipe has not caught up yet, or the bridge is behind: `make status`. |
-| `check-07` wants an order of every method | Keep the shoppers running a little longer: about one in six sessions orders, and card is half of the orders. |
+| `check-07` wants an order of every method | Keep the shoppers running a little longer: about one in six sessions orders, and card is half of the orders. With two browsers (Docker under 8 GB), give it about 20 minutes. |
 
 ## Going further
 

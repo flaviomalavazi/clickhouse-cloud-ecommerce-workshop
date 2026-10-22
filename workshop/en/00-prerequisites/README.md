@@ -8,7 +8,7 @@
 
 ## Before you start
 
-- A laptop with 8 GB of memory and 4 CPUs to spare for Docker, and about 10 GB of free disk (15 GB is comfortable: `make doctor` calls less than that tight).
+- A laptop with 8 GB of memory and 4 CPUs to spare for Docker (4 GB of memory is the minimum: with less than 8 the workshop runs with a lighter load, see Troubleshooting), and about 10 GB of free disk (15 GB is comfortable: `make doctor` calls less than that tight).
 - A ClickHouse Cloud account where you can create a service and a Managed Postgres instance.
 - A browser, and an internet connection.
 
@@ -16,7 +16,7 @@ Tested on macOS (Apple silicon) with OrbStack. Docker Desktop and Colima work th
 
 ## Steps
 
-1. **Install a Docker engine** (Docker Desktop, OrbStack or Colima) and give it **8 GB of memory and 4 CPUs**. In Docker Desktop that is *Settings, Resources*. Start it.
+1. **Install a Docker engine** (Docker Desktop, OrbStack or Colima) and give it **8 GB of memory and 4 CPUs** (at least 4 GB of memory). In Docker Desktop that is *Settings, Resources*. Start it.
 
 2. **Install `make` and `git`.** On macOS, `xcode-select --install` installs both.
 
@@ -45,7 +45,7 @@ Tested on macOS (Apple silicon) with OrbStack. Docker Desktop and Colima work th
 
 ## Checkpoint
 
-`make check-00` prints a ✓ for each of: Docker running, 8 GB and 4 CPUs, 10 GB of free disk, the tools image built, the tool images downloaded, the six workshop images built, the collector chart downloaded, and port 3000 free. It ends with `All checks passed`.
+`make check-00` prints a ✓ for each of: Docker running, 4 CPUs and at least 4 GB of memory (under 8 GB it also prints a note: keep the load light), 10 GB of free disk, the tools image built, the tool images downloaded, the six workshop images built, the collector chart downloaded, and port 3000 free. It ends with `All checks passed`.
 
 The workshop needs the internet while it runs too: Snowplow Micro fetches event schemas from Iglu Central, and the Cloud services are, of course, in the cloud.
 
@@ -54,7 +54,8 @@ The workshop needs the internet while it runs too: Snowplow Micro fetches event 
 | Symptom | Fix |
 |---|---|
 | `the Docker daemon is not running` | Start Docker Desktop or OrbStack, wait for it to say it is running, run the check again. |
-| `Docker has less than 8 GB of memory` | Raise it in the Docker settings and restart Docker. |
+| `Docker has less than 4 GB of memory` | Raise it in the Docker settings and restart Docker. |
+| `under 8 GB: keep the load light` | It runs, but with half the load: add `SIM_ARRIVALS_PER_MINUTE=3`, `PRODUCE_TARGET_EPS=100` and `CC_TARGET_TPS=10` to `.env`, and start with `make setup USERS=2` (or `make sim-start USERS=2`). `make check-07` then needs about 20 minutes of shoppers instead of 10. |
 | `port 3000 is in use` | Something on your machine uses it (often a local `npm run dev`). Stop it; the storefront needs 3000. |
 | `make: command not found` | `xcode-select --install` on macOS, or `apt install make` on Debian and Ubuntu. |
 | A pull or build fails halfway | Run `make prefetch` again; finished images are kept. |

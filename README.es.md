@@ -109,7 +109,7 @@ Unas cuatro horas a mano, y una hora con `make setup`. Si vas a dar este taller 
 
 ## Qué necesitas
 
-- Una laptop con **Docker** (Docker Desktop, OrbStack o Colima) con **8 GB de memoria y 4 CPUs** asignados, unos **10 GB de disco libre**, y `make` y `git`. No se instala nada más: `k3d`, `kubectl` y `helm` se ejecutan desde contenedores.
+- Una laptop con **Docker** (Docker Desktop, OrbStack o Colima) con **8 GB de memoria y 4 CPUs** asignados (4 GB de memoria como mínimo, con menos carga), unos **10 GB de disco libre**, y `make` y `git`. No se instala nada más: `k3d`, `kubectl` y `helm` se ejecutan desde contenedores.
 - Una cuenta de **ClickHouse Cloud** en la que puedas crear un servicio y una instancia de Managed Postgres y, para `make setup`, una **clave de API** con el rol Admin.
 - Una conexión a internet.
 

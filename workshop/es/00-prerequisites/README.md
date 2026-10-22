@@ -8,7 +8,7 @@
 
 ## Antes de empezar
 
-- Una laptop con 8 GB de memoria y 4 CPUs disponibles para Docker, y unos 10 GB de disco libre (15 GB es cómodo: `make doctor` considera que menos que eso es justo).
+- Una laptop con 8 GB de memoria y 4 CPUs disponibles para Docker (4 GB de memoria es el mínimo: con menos de 8 el taller funciona con menos carga, ve Solución de problemas), y unos 10 GB de disco libre (15 GB es cómodo: `make doctor` considera que menos que eso es justo).
 - Una cuenta de ClickHouse Cloud en la que puedas crear un servicio y una instancia de Managed Postgres.
 - Un navegador y una conexión a internet.
 
@@ -16,7 +16,7 @@ Probado en macOS (Apple silicon) con OrbStack. Docker Desktop y Colima funcionan
 
 ## Pasos
 
-1. **Instala un motor de Docker** (Docker Desktop, OrbStack o Colima) y asígnale **8 GB de memoria y 4 CPUs**. En Docker Desktop eso está en *Settings, Resources*. Inícialo.
+1. **Instala un motor de Docker** (Docker Desktop, OrbStack o Colima) y asígnale **8 GB de memoria y 4 CPUs** (al menos 4 GB de memoria). En Docker Desktop eso está en *Settings, Resources*. Inícialo.
 
 2. **Instala `make` y `git`.** En macOS, `xcode-select --install` instala ambos.
 
@@ -45,7 +45,7 @@ Probado en macOS (Apple silicon) con OrbStack. Docker Desktop y Colima funcionan
 
 ## Punto de control
 
-`make check-00` imprime un ✓ por cada uno de estos puntos: Docker en ejecución, 8 GB y 4 CPUs, 10 GB de disco libre, la imagen de herramientas construida, las imágenes de las herramientas descargadas, las seis imágenes del taller construidas, el chart del collector descargado y el puerto 3000 libre. Termina con `All checks passed`.
+`make check-00` imprime un ✓ por cada uno de estos puntos: Docker en ejecución, 4 CPUs y al menos 4 GB de memoria (con menos de 8 GB también imprime una nota: usa menos carga), 10 GB de disco libre, la imagen de herramientas construida, las imágenes de las herramientas descargadas, las seis imágenes del taller construidas, el chart del collector descargado y el puerto 3000 libre. Termina con `All checks passed`.
 
 El taller también necesita internet mientras se ejecuta: Snowplow Micro obtiene los esquemas de eventos desde Iglu Central, y los servicios de Cloud están, por supuesto, en la nube.
 
@@ -54,7 +54,8 @@ El taller también necesita internet mientras se ejecuta: Snowplow Micro obtiene
 | Síntoma | Solución |
 |---|---|
 | `the Docker daemon is not running` | Inicia Docker Desktop u OrbStack, espera a que indique que está en ejecución y vuelve a ejecutar la comprobación. |
-| `Docker has less than 8 GB of memory` | Auméntala en la configuración de Docker y reinicia Docker. |
+| `Docker has less than 4 GB of memory` | Auméntala en la configuración de Docker y reinicia Docker. |
+| `under 8 GB: keep the load light` | Funciona, pero con la mitad de la carga: agrega `SIM_ARRIVALS_PER_MINUTE=3`, `PRODUCE_TARGET_EPS=100` y `CC_TARGET_TPS=10` a `.env`, y empieza con `make setup USERS=2` (o `make sim-start USERS=2`). `make check-07` necesita entonces unos 20 minutos de compradores en lugar de 10. |
 | `port 3000 is in use` | Algo en tu computadora lo está usando (a menudo un `npm run dev` local). Deténlo; la tienda necesita el 3000. |
 | `make: command not found` | `xcode-select --install` en macOS, o `apt install make` en Debian y Ubuntu. |
 | Una descarga o una construcción falla a medias | Ejecuta `make prefetch` de nuevo; las imágenes terminadas se conservan. |

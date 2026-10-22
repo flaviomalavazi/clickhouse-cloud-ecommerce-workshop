@@ -27,9 +27,9 @@ docker version --format '{{.Server.Version}}'
 docker info --format 'memory={{.MemTotal}} cpus={{.NCPU}}'
 ```
 
-It needs about **8 GB of memory and 4 CPUs**. Docker reports a little under its setting (an 8 GB setting shows about 7.7 GiB), so do not judge it by hand: `make check-00` accepts anything from 7.5 billion bytes up.
+It needs **4 CPUs** and at least **4 GB of memory**; 8 GB is comfortable. Docker reports a little under its setting (an 8 GB setting shows about 7.7 GiB, a 4 GB one about 3.8), so do not judge it by hand: `make check-00` passes from 3.75 billion bytes up, and under 7.5 billion it adds the note `under 8 GB: keep the load light`.
 
-If Docker is not running, or is too small: **[PARTICIPANT DOES — console]** start Docker Desktop / OrbStack / Colima, and in its settings (Docker Desktop: *Settings, Resources*) give it 8 GB and 4 CPUs, then restart it. Wait until they say it is running, and run the commands again. You do not install Docker for them.
+If Docker is not running, or is too small: **[PARTICIPANT DOES — console]** start Docker Desktop / OrbStack / Colima, and in its settings (Docker Desktop: *Settings, Resources*) give it 8 GB if the machine has room (4 GB at least) and 4 CPUs, then restart it. Wait until they say it is running, and run the commands again. You do not install Docker for them.
 
 ### 2. `tools-present` [AGENT RUNS] Are `make` and `git` there?
 
@@ -63,14 +63,15 @@ make check-00
 
 ## Checkpoint
 
-`make check-00` prints a `✓` for each of: Docker running, 8 GB and 4 CPUs, 10 GB of free disk, the tool images, the six workshop images, the collector chart, and port 3000 free. It ends with `All checks passed`.
+`make check-00` prints a `✓` for each of: Docker running, 4 CPUs and at least 4 GB of memory, 10 GB of free disk, the tool images, the six workshop images, the collector chart, and port 3000 free. It ends with `All checks passed`.
 
 ## Failure playbook
 
 | Symptom | Diagnose | Fix |
 |---|---|---|
 | `the Docker daemon is not running` | `docker version` | The participant starts Docker and waits until it says it is running. |
-| `Docker has less than 8 GB of memory` | `docker info --format '{{.MemTotal}}'` | The participant raises it in Docker's settings and restarts Docker. |
+| `Docker has less than 4 GB of memory` | `docker info --format '{{.MemTotal}}'` | The participant raises it in Docker's settings and restarts Docker. |
+| `under 8 GB: keep the load light` (a note, the check passes) | `docker info --format '{{.MemTotal}}'` | The workshop runs at half the load. Record `"low_memory": true` in `notes`, and when they fill in `.env` in module 01 ask them to add `SIM_ARRIVALS_PER_MINUTE=3`, `PRODUCE_TARGET_EPS=100` and `CC_TARGET_TPS=10` (they edit it, not you). From then on start the shoppers with `USERS=2` (`make setup USERS=2`, `make sim-start USERS=2`). If the machine still swaps, `make sim-stop`. |
 | `port 3000 is in use` | `lsof -i :3000` (shows the process) | Something of theirs uses it (often a local `npm run dev`). They stop it. (If the clickshop cluster already exists, this is fine.) |
 | A pull or build fails halfway | The last lines of the output | `make prefetch` again. |
 | `no space left`, or fewer than 10 GB free | `docker system df` | `docker builder prune -f` frees build cache. Anything more is the participant's decision (their other images may be needed): ask before suggesting `docker image prune`. |
