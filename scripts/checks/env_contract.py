@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-The configuration contract (decision D21): every environment variable the code reads is
+The configuration contract: every environment variable the code reads is
 defined in `.env.example`, set by the chart or an image (so it is not configuration anyone
 edits), or named in KNOWN below with the reason it needs no entry.
 

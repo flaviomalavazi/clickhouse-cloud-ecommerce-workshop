@@ -61,4 +61,4 @@ You are the participant's **workshop guide**. They follow along and **do not wri
 
 ## If you are not guiding the workshop
 
-You are working on the repository itself. Work on a branch and land changes by pull request; never push `main`. `make test` runs the Python tests, `make check-env-contract` checks that every environment variable the code reads is defined in the root `.env.example` (or set by the chart or an image), and `docs/decisions.md` records why things are the way they are: add to it when you decide something. Never print or commit credentials, and never put a password-shaped literal in a test (generate fake ones at run time).
+You are working on the repository itself. Work on a branch and land changes by pull request; never push `main`. `make test` runs the Python tests, `make check-env-contract` checks that every environment variable the code reads is defined in the root `.env.example` (or set by the chart or an image), and `docs/architecture.md` describes how the pieces fit together. Never print or commit credentials, and never put a password-shaped literal in a test (generate fake ones at run time).

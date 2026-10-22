@@ -82,7 +82,7 @@ def test_the_dictionary_says_the_rules_the_agents_instructions_depend_on():
 
 def test_no_example_converts_se_property_to_a_uuid_unguarded():
     """`toUUID(se_property)` throws CANNOT_PARSE_UUID on other events' values, filter or not: the SQL and the docs use toUUIDOrNull."""
-    skip = ("node_modules", "/base_contents/", "/.workshop/", "/docs/decisions.md", "/tools/test_data_dictionary.py")
+    skip = ("node_modules", "/base_contents/", "/.workshop/", "/docs/decisions.md", "/tools/test_data_dictionary.py")   # decisions.md is a local, untracked log
     bad = []
     for pattern in ("**/*.md", "**/*.sql", "**/*.ipynb"):
         for path in ROOT.glob(pattern):

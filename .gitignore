@@ -54,6 +54,8 @@ assets/product_images/
 # ── Local-only reference material ─────────────────────────────────────────────
 # The implementation plan and other working documents. Never committed.
 base_contents/
+# The decisions log: the long working record of why things are the way they are. Kept on the owner's machine, not published.
+docs/decisions.md
 
 # ── Workshop agent mode ───────────────────────────────────────────────────────
 # Per-participant progress file written by the guide agent (AGENTS.md).

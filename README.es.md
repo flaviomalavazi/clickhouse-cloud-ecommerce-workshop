@@ -165,7 +165,6 @@ tools/                    the database tasks (seed, SQL runner, checks)
 scripts/                  doctor, and the module checks in scripts/checks/
 docs/architecture.md      the deeper dive: data paths, the checkout, observability, the local platform
 docs/data-dictionary.md   every table and column, the join keys and the rules for querying them
-docs/decisions.md         why things are the way they are
 ```
 
 ## Solución de problemas
@@ -176,5 +175,3 @@ Cada módulo tiene su propia tabla. Los sospechosos habituales:
 - Los pods están en `Pending` o son desalojados, o las construcciones fallan con "no space left": el disco de Docker está lleno. Mantén 10 GB libres (`docker system df`).
 - Algo responde muy lento o se agota el tiempo de espera: a los servicios de Cloud se llega por internet; `make doctor` muestra si responden.
 - Cambiaste `.env` y no pasó nada: `make apply-env`.
-
-`docs/decisions.md` registra cada decisión y lo que se midió mientras se construía el taller.
