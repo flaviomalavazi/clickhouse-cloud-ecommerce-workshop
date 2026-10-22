@@ -17,7 +17,9 @@ APP_CHART := deploy/helm/clickshop
 OTEL_CHART := .workshop/charts/opentelemetry-collector-$(OTEL_CHART_VERSION).tgz
 
 TOOLS_IMAGE   := clickshop-tools
-# Pinned: the version the workshop is built against (text index needs 26.2+).
+# Client only: `make ch-client` runs clickhouse-client from it against the Cloud service; no
+# local server runs. Pinned to the version the workshop is built against (text index needs 26.2+).
+# Not prefetched: `docker run` pulls it the first time someone runs `make ch-client`.
 CLICKHOUSE_IMAGE := clickhouse/clickhouse-server:26.9
 CLICKHOUSE_NATIVE_TLS_PORT := 9440
 
@@ -134,7 +136,7 @@ doctor: tools-image ## Check Docker, ports, .env and both databases
 prefetch: tools-image ## Download and build everything ahead of the workshop (needs a network once)
 	@$(MAKE) --no-print-directory $(OTEL_CHART)
 	@for image in $(K3D_IMAGE) $(K3D_TOOLS_IMAGE) $(K3D_PROXY_IMAGE) $(HELM_IMAGE) $(KUBECTL_IMAGE) \
-	  $$(awk '/^image:/{print $$2}' deploy/k3d/cluster.yaml) $(CLICKHOUSE_IMAGE); do \
+	  $$(awk '/^image:/{print $$2}' deploy/k3d/cluster.yaml); do \
 	  docker image inspect $$image >/dev/null 2>&1 || { echo "pulling $$image"; docker pull -q $$image >/dev/null; }; done
 	@deploy/images.sh --no-import --all
 	@echo "prefetched: the cluster can be created offline"
