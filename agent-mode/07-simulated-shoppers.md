@@ -27,6 +27,8 @@ make sim-start USERS=4
 deploy/bin/kubectl -n clickshop logs deploy/simulator --tail=10
 ```
 
+If `notes.low_memory` is true, use `USERS=2`: then there are two browsers, and everything below that needs ten minutes of shoppers needs about twenty.
+
 A pod starts four Chromium browsers (about 300 MB of memory each). Shoppers arrive at about **six a minute**, and each behaves like a person on the real storefront: opens a landing page, browses categories, searches, opens products, sometimes adds to the cart, and checks out with card, Pix or Boleto, in English, Portuguese or Spanish. About one session in six ends in an order. Every click goes through the real page, so the real Snowplow tracker emits the events, the real API writes the order and the real OpenTelemetry instrumentation records the traces. Explain the log line that prints every 30 seconds: `sessions` (shoppers arrived), `orders`, `failed` (orders refused: the card gateway failing in module 08) and `soldout` (found a product gone).
 
 The first time, loading the browser image takes a little longer (1.5 GB). If the pod stays `Pending`, memory is short: lower `USERS`.
@@ -102,7 +104,7 @@ Needs about ten minutes of shoppers: if it says an order of a payment method is 
 | No orders after several minutes | `deploy/bin/kubectl -n clickshop logs deploy/simulator --tail=30`; `make doctor` | Read the simulator's errors; the databases are the usual cause. |
 | `failed` keeps rising | `deploy/bin/kubectl -n clickshop logs deploy/frontend --tail=40` | Orders are refused. If `make break-card-gateway` was run (module 08), `make fix-card-gateway`. |
 | The join returns nothing | `make status` | The ClickPipe has not caught up, or the bridge is behind: wait a sync interval. |
-| `check-07` wants an order of every method | `make ch-query FILE=sql/clickhouse/examples/07_simulated_shoppers.sql N=5` | Keep the shoppers running longer: about one in six sessions orders, and card is half of the orders. |
+| `check-07` wants an order of every method | `make ch-query FILE=sql/clickhouse/examples/07_simulated_shoppers.sql N=5` | Keep the shoppers running longer: about one in six sessions orders, and card is half of the orders (about twenty minutes with `USERS=2`). |
 
 ## Fast track
 

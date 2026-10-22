@@ -39,7 +39,7 @@ If someone is blocked at the console (a service will not start, a feature is mis
 
 | Need | How to check |
 |---|---|
-| Docker (Docker Desktop, OrbStack or Colima) with **8 GB of memory and 4 CPUs**, and about **10 GB of free disk** (15 GB is comfortable) | `make check-00` |
+| Docker (Docker Desktop, OrbStack or Colima) with **8 GB of memory and 4 CPUs** (4 GB of memory runs it with a lighter load: `make doctor` says how), and about **10 GB of free disk** (15 GB is comfortable) | `make check-00` |
 | `make`, `git`; also `curl` and `python3`, which macOS and Linux already have | `make check-00` |
 | Nothing else is installed: `k3d`, `kubectl` and `helm` run from containers | |
 

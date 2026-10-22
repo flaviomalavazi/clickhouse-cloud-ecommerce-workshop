@@ -10,8 +10,14 @@ if ! docker info >/dev/null 2>&1; then
 fi
 pass "Docker $(docker version --format '{{.Server.Version}}') is running ($(docker info --format '{{.OperatingSystem}}'))"
 mem=$(docker info --format '{{.MemTotal}}'); cpus=$(docker info --format '{{.NCPU}}')
-# Docker Desktop reports a little under its setting: an 8 GB setting shows about 7.7 GiB.
-if [ "$mem" -ge 7500000000 ]; then pass "Docker has $(awk -v b="$mem" 'BEGIN { printf "%.1f", b / 1073741824 }') GiB of memory (needs 8 GB)"; else fail "Docker has less than 8 GB of memory: Docker Desktop, Settings, Resources"; fi
+# Docker Desktop reports a little under its setting: an 8 GB setting shows about 7.7 GiB, a 4 GB one about 3.8.
+# 4 GB runs the workshop; under 8 it passes with a note, because the load has to be lighter (make doctor says how).
+mem_gib=$(awk -v b="$mem" 'BEGIN { printf "%.1f", b / 1073741824 }')
+if [ "$mem" -ge 7500000000 ]; then pass "Docker has $mem_gib GiB of memory (needs 4 GB, 8 GB is comfortable)"
+elif [ "$mem" -ge 3750000000 ]; then
+  pass "Docker has $mem_gib GiB of memory (needs 4 GB)"
+  echo "  · under 8 GB: keep the load light (make doctor says how: fewer browsers, slower generators)"
+else fail "Docker has less than 4 GB of memory: Docker Desktop, Settings, Resources"; fi
 if [ "$cpus" -ge 4 ]; then pass "Docker has $cpus CPUs (needs 4)"; else fail "Docker has $cpus CPUs, the cluster needs 4"; fi
 if docker buildx version >/dev/null 2>&1; then pass "Docker has buildx (images build with BuildKit)"; else echo "  · Docker has no buildx plugin: the images build with the legacy builder, slower and with a deprecation notice (make doctor says how to add it)"; fi
 check "the tools image (clickshop-tools: Python, psql) is built" docker image inspect clickshop-tools

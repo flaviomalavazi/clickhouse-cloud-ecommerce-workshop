@@ -114,7 +114,7 @@ Hay pedidos confirmados con los tres métodos de pago desde la carga inicial, y 
 | `failed` sigue subiendo | Se están rechazando pedidos. `make logs S=frontend`; si ejecutaste `make break-card-gateway` en el módulo 08, ejecuta `make fix-card-gateway`. |
 | No hay pedidos después de varios minutos | `make logs S=simulator` para ver errores; `make doctor` para las bases de datos. |
 | El join no devuelve nada | El ClickPipe aún no se ha puesto al día, o el bridge va atrasado: `make status`. |
-| `check-07` pide un pedido de cada método | Deja los compradores en ejecución un poco más: más o menos una de cada seis sesiones hace un pedido, y la tarjeta es la mitad de los pedidos. |
+| `check-07` pide un pedido de cada método | Deja los compradores en ejecución un poco más: más o menos una de cada seis sesiones hace un pedido, y la tarjeta es la mitad de los pedidos. Con dos navegadores (Docker con menos de 8 GB), dale unos 20 minutos. |
 
 ## Para ir más lejos
 

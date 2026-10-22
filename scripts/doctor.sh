@@ -59,8 +59,16 @@ echo "Docker resources"
 mem_bytes=$(docker info --format '{{.MemTotal}}')
 cpus=$(docker info --format '{{.NCPU}}')
 mem_gb=$(awk -v b="$mem_bytes" 'BEGIN { printf "%.1f", b / 1073741824 }')
-# Docker Desktop reports a little under its setting (an 8 GB setting shows ~7.7 GiB).
-if [ "$mem_bytes" -ge 7500000000 ]; then ok "memory ${mem_gb} GiB (needs 8 GB)"; else bad "memory ${mem_gb} GiB: the cluster needs 8 GB (Docker Desktop: Settings > Resources)"; fi
+# Docker Desktop reports a little under its setting (an 8 GB setting shows ~7.7 GiB, a 4 GB one ~3.8).
+# Everything running at the default load measured 3.4 GiB, so 4 GB runs it and 8 GB is the headroom:
+# under 8, warn and say how to halve the load instead of stopping make setup.
+if [ "$mem_bytes" -ge 7500000000 ]; then ok "memory ${mem_gb} GiB (needs 4 GB, 8 GB is comfortable)"
+elif [ "$mem_bytes" -ge 3750000000 ]; then
+  warn "memory ${mem_gb} GiB: enough, but under the 8 GB the workshop is sized for, so keep the load light:"
+  printf '      in .env: SIM_ARRIVALS_PER_MINUTE=3, PRODUCE_TARGET_EPS=100, CC_TARGET_TPS=10 (half the default load; make apply-env if the cluster is up)\n'
+  printf '      two browsers instead of four: make setup USERS=2, or make sim-start USERS=2 (about 300 MB each)\n'
+  printf '      if the machine still swaps: make sim-stop (the generators keep the clickstream flowing; orders come only from the shoppers)\n'
+else bad "memory ${mem_gb} GiB: the workshop needs at least 4 GB, 8 GB is comfortable (Docker Desktop: Settings > Resources)"; fi
 if [ "$cpus" -ge 4 ]; then ok "${cpus} CPUs (needs 4)"; else bad "${cpus} CPUs: the cluster needs 4"; fi
 # Docker keeps its images on one virtual disk, and the three nodes each hold their
 # own copy of every image they run: about 10 GB for the workshop.

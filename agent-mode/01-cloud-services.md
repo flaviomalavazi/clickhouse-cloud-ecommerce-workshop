@@ -98,7 +98,7 @@ Say: "From here one command builds what modules 01 to 08 build by hand, in the o
 make setup
 ```
 
-Run it in the background with the log in `.workshop/logs/setup.log` and read the step lines as they appear (`[n/13] ...`). While it runs, use the talking points: this is the time to explain the architecture. When it ends it prints a timing per step and the storefront URL. If the ClickStack step says it could not finish, that is expected on a service where ClickStack has never been opened: module 08 handles it.
+If `notes.low_memory` is true, run `make setup USERS=2` instead, after they confirm the three load lines from module 00 are in `.env`. Run it in the background with the log in `.workshop/logs/setup.log` and read the step lines as they appear (`[n/13] ...`). While it runs, use the talking points: this is the time to explain the architecture. When it ends it prints a timing per step and the storefront URL. If the ClickStack step says it could not finish, that is expected on a service where ClickStack has never been opened: module 08 handles it.
 
 Record `"setup_done": true` in the progress file's `notes`. Before you run it, ask them to open **ClickStack** once from their ClickHouse service in the console (a minute: that creates ClickStack's connection to the service). If they have not, `make setup` still builds everything else and ends by saying the ClickStack step is `NOT DONE`: that is the reason, and module 08 fixes it.
 

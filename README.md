@@ -109,7 +109,7 @@ About four hours by hand, and about one hour with `make setup`. If you are runni
 
 ## What you need
 
-- A laptop with **Docker** (Docker Desktop, OrbStack or Colima) given **8 GB of memory and 4 CPUs**, about **10 GB of free disk**, and `make` and `git`. Nothing else is installed: `k3d`, `kubectl` and `helm` run from containers.
+- A laptop with **Docker** (Docker Desktop, OrbStack or Colima) given **8 GB of memory and 4 CPUs** (4 GB of memory at least, with a lighter load), about **10 GB of free disk**, and `make` and `git`. Nothing else is installed: `k3d`, `kubectl` and `helm` run from containers.
 - A **ClickHouse Cloud** account where you can create a service and a Managed Postgres instance, and, for `make setup`, an **API key** with the Admin role.
 - An internet connection.
 
