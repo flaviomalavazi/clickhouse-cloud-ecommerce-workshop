@@ -129,9 +129,9 @@ Ejecuta `make help` para ver la lista completa. Los que usarás:
 | `make psql`, `make ch-client` | una consola de SQL en Postgres, en ClickHouse |
 | `make ch-query Q="SELECT 1"`, `make pg-query Q="SELECT 1"` | ejecutar SQL sin consola interactiva (lo que usa un agente); `FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2` ejecuta una consulta de ejemplo numerada |
 | `make up` | iniciar el clúster local y la aplicación de una sola vez (módulo 05; ejecuta `make cluster images secrets app`) |
-| `make traffic-start` | iniciar juntos los generadores en vivo y los compradores del navegador (`USERS=4` define cuántos) |
+| `make traffic-start` | iniciar juntos los generadores en vivo y los compradores del navegador (`SIM_USERS` en `.env` define cuántos) |
 | `make start` | todo lo anterior: `make up` y luego `make traffic-start` |
-| `make backfill`, `make generators-start`, `make sim-start USERS=4` | llenar ClickHouse; iniciar los generadores en vivo; iniciar los compradores del navegador, cada uno por separado |
+| `make backfill`, `make generators-start`, `make sim-start` | llenar ClickHouse; iniciar los generadores en vivo; iniciar los compradores del navegador, cada uno por separado |
 | `make generators-stop`, `make sim-stop`, `make traffic-stop` | detener los generadores, los compradores o ambos |
 | `make break-card-gateway`, `make fix-card-gateway` | el ejercicio del módulo 08 |
 | `make status`, `make logs S=<service>` | los pods y la frescura de cada tabla; seguir los logs de un servicio |

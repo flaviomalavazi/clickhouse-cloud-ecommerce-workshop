@@ -17,7 +17,7 @@ deploy/bin/kubectl -n clickshop get deploy simulator
 
 (`READY 1/1` means the shoppers are running; `NotFound` means they are not.)
 
-`check-07` must pass (or the participant chose to move on), and the simulator must be running: the screens need traffic. If it is not: `make sim-start USERS=4` (`USERS=2` if `notes.low_memory`) and wait a few minutes. Nothing needs installing: everything the cluster observes is already flowing.
+`check-07` must pass (or the participant chose to move on), and the simulator must be running: the screens need traffic. If it is not: `make sim-start` and wait a few minutes. Nothing needs installing: everything the cluster observes is already flowing.
 
 ## Steps
 
@@ -141,8 +141,8 @@ make check-08
 |---|---|---|
 | ClickStack shows no data | `make clickstack-list`; step 1's queries | The sources must point at `retail_otel` and the right tables; and the tables must be growing (`make status`). |
 | `make clickstack-setup` stops and says there is no source | Read its message | The participant opens ClickStack from their service once, then run it again (or they create the sources by hand). |
-| The service map is empty or partial | `deploy/bin/kubectl -n clickshop get deploy simulator` | It needs traffic: `make sim-start USERS=4`, wait a few minutes. |
-| No session replays | Step 1's third query | They come from the simulator's browsers: `make sim-start USERS=4`. |
+| The service map is empty or partial | `deploy/bin/kubectl -n clickshop get deploy simulator` | It needs traffic: `make sim-start`, wait a few minutes. |
+| No session replays | Step 1's third query | They come from the simulator's browsers: `make sim-start`. |
 | No Kubernetes dashboard data | `deploy/bin/kubectl get pods -n observability` | Should list 4 collectors; if not, `make app`. |
 | `make break-card-gateway` seems to do nothing | The simulator log's `failed` counter | Card payments only fail when a shopper pays by card (about half the orders): wait a minute or two. |
 | The errors do not stop after the fix | `deploy/bin/kubectl -n clickshop rollout status deploy/card-gateway` | The rollout takes about a minute; give it that, and if the errors continue run `make fix-card-gateway` again. |

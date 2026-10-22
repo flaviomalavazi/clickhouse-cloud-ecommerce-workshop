@@ -100,7 +100,7 @@ backfill:
     requests: { cpu: 500m, memory: 512Mi }
     limits: { memory: 2Gi }
 
-# Headless-browser shoppers: `make sim-start USERS=n`. A browser needs about
+# Headless-browser shoppers: `make sim-start` (SIM_USERS in .env, or USERS=n). A browser needs about
 # 300 MB, so the memory limit follows `sessions`.
 simulator:
   enabled: false

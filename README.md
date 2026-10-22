@@ -129,9 +129,9 @@ Run `make help` for the full list. The ones you will use:
 | `make psql`, `make ch-client` | a SQL prompt on Postgres, on ClickHouse |
 | `make ch-query Q="SELECT 1"`, `make pg-query Q="SELECT 1"` | run SQL without a prompt (what an agent uses); `FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2` runs one numbered example query |
 | `make up` | start the local cluster and the application in one go (module 05; it runs `make cluster images secrets app`) |
-| `make traffic-start` | start the live generators and the browser shoppers together (`USERS=4` sets how many) |
+| `make traffic-start` | start the live generators and the browser shoppers together (`SIM_USERS` in `.env` sets how many) |
 | `make start` | all of the above: `make up`, then `make traffic-start` |
-| `make backfill`, `make generators-start`, `make sim-start USERS=4` | fill ClickHouse; start the live generators; start the browser shoppers, each on its own |
+| `make backfill`, `make generators-start`, `make sim-start` | fill ClickHouse; start the live generators; start the browser shoppers, each on its own |
 | `make generators-stop`, `make sim-stop`, `make traffic-stop` | stop the generators, the shoppers, or both |
 | `make break-card-gateway`, `make fix-card-gateway` | the module 08 exercise |
 | `make status`, `make logs S=<service>` | the pods and the freshness of every table; follow a service's logs |

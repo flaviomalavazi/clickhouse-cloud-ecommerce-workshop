@@ -19,8 +19,8 @@ Everything is configured in the **root `.env`** and started with `make`. The wor
 |---|---|
 | load 30 days of history (5 million events, about 1½ minutes; skipped if it is already there, `FORCE=1` loads it again) | `make backfill` |
 | start the live generators | `make generators-start` |
-| start browser shoppers (4 by default) | `make sim-start USERS=4` |
-| start both at once | `make traffic-start` (`USERS=4` sets the shoppers) |
+| start browser shoppers (4 by default, `SIM_USERS` in `.env`) | `make sim-start` |
+| start both at once | `make traffic-start` |
 | stop one, or everything | `make generators-stop`, `make sim-stop`, `make traffic-stop` |
 | watch one | `make logs S=producer-web`, `S=producer-cc`, `S=simulator` |
 | change a rate | edit `.env`, then `make apply-env` |
@@ -236,7 +236,7 @@ The connection itself comes from `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT` (8443), `C
 | Variable | Default | |
 |---|---|---|
 | `SIM_URL` | `http://frontend:3000` in the cluster | The storefront to drive |
-| `SIM_SESSIONS` | `4` | Concurrent browsers. `make sim-start USERS=n` sets it |
+| `SIM_SESSIONS` | `4` | Concurrent browsers. `make sim-start` sets it from `SIM_USERS` in `.env` (or `USERS=n`) |
 | `SIM_ARRIVALS_PER_MINUTE` ✎ | `6` | New shoppers a minute |
 | `SIM_DWELL_SCALE` ✎ | `0.1` | Multiplier on every pause (1 = realistic, minutes a visit) |
 | `SIM_DURATION` | `0` | Seconds; `0` = until stopped |
@@ -312,7 +312,7 @@ scripts/with-env.sh python data-generators/simulator/simulate.py --url http://lo
 | The web producer stops with "products_search is empty" | Module 04: `make ch-search`, then `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh` and `SYSTEM WAIT VIEW retail_analytics.products_search_refresh`. |
 | `[ERROR] CLICKHOUSE_HOST is not set` | The pod has no credentials: `make secrets`, then `make apply-env`. |
 | Inserts are slow or time out | The network to ClickHouse Cloud, or `CH_BATCH_ROWS` too high for it. The flush line shows `ms`. |
-| The simulator warns `SIM_SESSIONS is short` | Arrivals it cannot serve are dropped: raise `USERS`, lower `SIM_ARRIVALS_PER_MINUTE`, or lower `SIM_DWELL_SCALE`. |
+| The simulator warns `SIM_SESSIONS is short` | Arrivals it cannot serve are dropped: raise `SIM_USERS`, lower `SIM_ARRIVALS_PER_MINUTE`, or lower `SIM_DWELL_SCALE`. |
 | The simulator reports `failed` orders | The card gateway is broken (`make fix-card-gateway`), or the storefront cannot reach Postgres. |
 | Newest card transactions are dated in the future | That is the anomaly signal (see above), not a clock problem. |
 | A producer pod is `OOMKilled` | Lower `PRODUCE_WORKERS`, or raise the pod's memory limit in `values.yaml`. |
