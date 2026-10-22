@@ -20,11 +20,11 @@
 If you ran `make setup` they are already running (four browsers): go to step 2. (`make traffic-start` starts them together with module 06's generators.)
 
 ```bash
-make sim-start USERS=4
+make sim-start
 make logs S=simulator
 ```
 
-A pod starts four Chromium browsers (about 300 MB of memory each). Shoppers arrive at about **six a minute**, and each one behaves like a person on the real storefront: opens a landing page, browses categories, searches, opens products, sometimes adds to the cart, and checks out with card, Pix or Boleto. They browse in English, Portuguese or Spanish and search in that language. About one session in six ends in an order. Every click goes through the real page, so the real Snowplow tracker emits the events, the real API writes the order, and the real OpenTelemetry instrumentation records the traces.
+A pod starts four Chromium browsers (about 300 MB of memory each; `SIM_USERS` in `.env` changes how many). Shoppers arrive at about **six a minute**, and each one behaves like a person on the real storefront: opens a landing page, browses categories, searches, opens products, sometimes adds to the cart, and checks out with card, Pix or Boleto. They browse in English, Portuguese or Spanish and search in that language. About one session in six ends in an order. Every click goes through the real page, so the real Snowplow tracker emits the events, the real API writes the order, and the real OpenTelemetry instrumentation records the traces.
 
 The log prints a line every 30 seconds:
 
@@ -110,7 +110,7 @@ There are confirmed orders with all three payment methods since the seed, and th
 | Symptom | Fix |
 |---|---|
 | `make sim-start` takes a while the first time | It loads the 1.5 GB browser image into the node (11 s on our machine). |
-| The simulator pod is `Pending` | Not enough memory: lower `USERS`, or give Docker more. |
+| The simulator pod is `Pending` | Not enough memory: lower `SIM_USERS` in `.env`, or give Docker more. |
 | `failed` keeps rising | Orders are being refused. `make logs S=frontend`; if you ran `make break-card-gateway` in module 08, run `make fix-card-gateway`. |
 | No orders after several minutes | `make logs S=simulator` for errors; `make doctor` for the databases. |
 | The join returns nothing | The ClickPipe has not caught up yet, or the bridge is behind: `make status`. |
@@ -118,7 +118,7 @@ There are confirmed orders with all three payment methods since the seed, and th
 
 ## Going further
 
-- `make sim-start USERS=8` doubles the browsers (and the memory). The arrival rate and how short their pauses are come from `.env`: `SIM_ARRIVALS_PER_MINUTE` and `SIM_DWELL_SCALE`.
+- `make sim-start USERS=8` doubles the browsers (and the memory) for one run; `SIM_USERS=8` in `.env` keeps it. The arrival rate and how short their pauses are come from `.env`: `SIM_ARRIVALS_PER_MINUTE` and `SIM_DWELL_SCALE`.
 - Run module 06's funnel query again for the last hour and compare the conversion with what the generators produce.
 - `data-generators/README.md` describes how the shoppers decide what to do.
 

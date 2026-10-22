@@ -55,7 +55,7 @@ El taller también necesita internet mientras se ejecuta: Snowplow Micro obtiene
 |---|---|
 | `the Docker daemon is not running` | Inicia Docker Desktop u OrbStack, espera a que indique que está en ejecución y vuelve a ejecutar la comprobación. |
 | `Docker has less than 4 GB of memory` | Auméntala en la configuración de Docker y reinicia Docker. |
-| `under 8 GB: keep the load light` | Funciona, pero con la mitad de la carga: agrega `SIM_ARRIVALS_PER_MINUTE=3`, `PRODUCE_TARGET_EPS=100` y `CC_TARGET_TPS=10` a `.env`, y empieza con `make setup USERS=2` (o `make sim-start USERS=2`). `make check-07` necesita entonces unos 20 minutos de compradores en lugar de 10. |
+| `under 8 GB: keep the load light` | Funciona, pero con la mitad de la carga: agrega `SIM_USERS=2`, `SIM_ARRIVALS_PER_MINUTE=3`, `PRODUCE_TARGET_EPS=100` y `CC_TARGET_TPS=10` a `.env` antes de `make setup` (si el clúster ya está en marcha: `make apply-env` y luego `make sim-start`). `make check-07` necesita entonces unos 20 minutos de compradores en lugar de 10. |
 | `port 3000 is in use` | Algo en tu computadora lo está usando (a menudo un `npm run dev` local). Deténlo; la tienda necesita el 3000. |
 | `make: command not found` | `xcode-select --install` en macOS, o `apt install make` en Debian y Ubuntu. |
 | Una descarga o una construcción falla a medias | Ejecuta `make prefetch` de nuevo; las imágenes terminadas se conservan. |

@@ -210,12 +210,14 @@ backfill-run: need-app
 	@$(KUBECTL) -n $(NS) logs -f job/backfill
 	@$(KUBECTL) -n $(NS) wait --for=condition=complete job/backfill --timeout=60s
 
-USERS ?= 4
-sim-start: need-app ## Start simulated shoppers in real browsers: make sim-start USERS=4
-	@deploy/images.sh simulator
-	@$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
-	  --set simulator.enabled=true --set simulator.sessions=$(USERS) --wait >/dev/null
-	@echo "simulator running with $(USERS) browsers (make logs S=simulator). Stop it with: make sim-stop"
+# How many browsers: USERS=n on the command line, else SIM_USERS in .env, else 4.
+sim-start: need-app ## Start simulated shoppers in real browsers (SIM_USERS in .env, 4 by default; USERS=n for this run)
+	@users='$(USERS)'; [ -n "$$users" ] || users=$$(scripts/env-value.sh SIM_USERS); users=$${users:-4}; \
+	case $$users in *[!0-9]*|0*) echo "ERROR: the number of browsers must be a whole number from 1, got '$$users' (USERS or SIM_USERS in .env)"; exit 2 ;; esac; \
+	deploy/images.sh simulator && \
+	$(HELM) upgrade clickshop $(APP_CHART) -n $(NS) --reset-then-reuse-values \
+	  --set simulator.enabled=true --set simulator.sessions=$$users --wait >/dev/null && \
+	echo "simulator running with $$users browsers (make logs S=simulator). Stop it with: make sim-stop"
 
 sim-stop: ## Stop the simulated shoppers
 	@if $(APP_UP); then \
@@ -223,10 +225,10 @@ sim-stop: ## Stop the simulated shoppers
 	  && echo "simulator stopped"; \
 	else echo "nothing to stop: the application is not running"; fi
 
-traffic-start: need-app ## Start all the load at once: the live generators and the simulated shoppers (make traffic-start USERS=4)
+traffic-start: need-app ## Start all the load at once: the live generators and the simulated shoppers (SIM_USERS in .env sets the browsers)
 	@$(MAKE) --no-print-directory generators-start sim-start
 
-start: ## Everything local in one go: the cluster and the application, then the generators and the shoppers (make start USERS=4)
+start: ## Everything local in one go: the cluster and the application, then the generators and the shoppers (SIM_USERS in .env sets the browsers)
 	@$(MAKE) --no-print-directory up traffic-start
 
 traffic-stop: ## Stop all the load at once: the live generators and the simulated shoppers

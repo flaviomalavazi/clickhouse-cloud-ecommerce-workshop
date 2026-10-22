@@ -20,11 +20,11 @@
 Si ejecutaste `make setup`, ya están en ejecución (cuatro navegadores): pasa al paso 2. (`make traffic-start` los inicia junto con los generadores del módulo 06.)
 
 ```bash
-make sim-start USERS=4
+make sim-start
 make logs S=simulator
 ```
 
-Un pod inicia cuatro navegadores Chromium (unos 300 MB de memoria cada uno). Los compradores llegan a un ritmo de unos **seis por minuto**, y cada uno se comporta como una persona en la tienda real: abre una página de inicio, recorre categorías, busca, abre productos, a veces agrega al carrito y paga con tarjeta, Pix o Boleto. Navegan en inglés, portugués o español y buscan en ese idioma. Más o menos una de cada seis sesiones termina en un pedido. Cada clic pasa por la página real, así que el tracker real de Snowplow emite los eventos, la API real escribe el pedido y la instrumentación real de OpenTelemetry registra las trazas.
+Un pod inicia cuatro navegadores Chromium (unos 300 MB de memoria cada uno; `SIM_USERS` en `.env` cambia cuántos). Los compradores llegan a un ritmo de unos **seis por minuto**, y cada uno se comporta como una persona en la tienda real: abre una página de inicio, recorre categorías, busca, abre productos, a veces agrega al carrito y paga con tarjeta, Pix o Boleto. Navegan en inglés, portugués o español y buscan en ese idioma. Más o menos una de cada seis sesiones termina en un pedido. Cada clic pasa por la página real, así que el tracker real de Snowplow emite los eventos, la API real escribe el pedido y la instrumentación real de OpenTelemetry registra las trazas.
 
 El log imprime una línea cada 30 segundos:
 
@@ -110,7 +110,7 @@ Hay pedidos confirmados con los tres métodos de pago desde la carga inicial, y 
 | Síntoma | Solución |
 |---|---|
 | `make sim-start` tarda un poco la primera vez | Carga la imagen del navegador de 1.5 GB en el nodo (11 s en nuestra máquina). |
-| El pod del simulador está en `Pending` | No hay suficiente memoria: baja `USERS` o dale más a Docker. |
+| El pod del simulador está en `Pending` | No hay suficiente memoria: baja `SIM_USERS` en `.env` o dale más a Docker. |
 | `failed` sigue subiendo | Se están rechazando pedidos. `make logs S=frontend`; si ejecutaste `make break-card-gateway` en el módulo 08, ejecuta `make fix-card-gateway`. |
 | No hay pedidos después de varios minutos | `make logs S=simulator` para ver errores; `make doctor` para las bases de datos. |
 | El join no devuelve nada | El ClickPipe aún no se ha puesto al día, o el bridge va atrasado: `make status`. |
@@ -118,7 +118,7 @@ Hay pedidos confirmados con los tres métodos de pago desde la carga inicial, y 
 
 ## Para ir más lejos
 
-- `make sim-start USERS=8` duplica los navegadores (y la memoria). El ritmo de llegada y lo cortas que son sus pausas vienen de `.env`: `SIM_ARRIVALS_PER_MINUTE` y `SIM_DWELL_SCALE`.
+- `make sim-start USERS=8` duplica los navegadores (y la memoria) por una vez; `SIM_USERS=8` en `.env` lo mantiene. El ritmo de llegada y lo cortas que son sus pausas vienen de `.env`: `SIM_ARRIVALS_PER_MINUTE` y `SIM_DWELL_SCALE`.
 - Ejecuta de nuevo la consulta del embudo del módulo 06 para la última hora y compara la conversión con lo que producen los generadores.
 - `data-generators/README.md` describe cómo deciden los compradores qué hacer.
 

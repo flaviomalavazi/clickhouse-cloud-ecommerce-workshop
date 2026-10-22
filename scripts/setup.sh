@@ -16,12 +16,15 @@
 # is safe to repeat, so if one fails, fix it and run `make setup` again; the steps already done are skipped.
 #
 #   make setup SKIP="backfill simulator"   leave steps out (names below)
-#   make setup USERS=2                     fewer browser shoppers (under 8 GB of memory for Docker)
+#   SIM_USERS=2 in .env                    fewer browser shoppers (under 8 GB of memory for Docker)
+#   make setup USERS=2                     the same, for this run only
 #   SETUP_DRY_RUN=1 make setup             print the plan and run nothing
 set -u
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 SKIP=" ${SKIP:-} "
+# The browsers, as make sim-start chooses them: USERS for this run, else SIM_USERS in .env, else 4.
+USERS=${USERS:-$(scripts/env-value.sh SIM_USERS)}
 DRY=${SETUP_DRY_RUN:-}
 
 # name | what | command
@@ -38,7 +41,7 @@ STEPS=(
   "clickstack|Create the ClickStack sources through the Cloud API|make clickstack-setup"
   "backfill|Load 30 days of history into ClickHouse (skipped if it is there)|make backfill"
   "generators|Start the live traffic generators|make generators-start"
-  "simulator|Start the simulated shoppers (${USERS:-4} browsers)|make sim-start USERS=${USERS:-4}"
+  "simulator|Start the simulated shoppers (${USERS:-4} browsers)|make sim-start${USERS:+ USERS=$USERS}"
 )
 # A step that may fail without stopping the rest (its fix is a console step, said at the end).
 SOFT=" clickstack "

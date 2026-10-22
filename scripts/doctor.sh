@@ -65,8 +65,8 @@ mem_gb=$(awk -v b="$mem_bytes" 'BEGIN { printf "%.1f", b / 1073741824 }')
 if [ "$mem_bytes" -ge 7500000000 ]; then ok "memory ${mem_gb} GiB (needs 4 GB, 8 GB is comfortable)"
 elif [ "$mem_bytes" -ge 3750000000 ]; then
   warn "memory ${mem_gb} GiB: enough, but under the 8 GB the workshop is sized for, so keep the load light:"
-  printf '      in .env: SIM_ARRIVALS_PER_MINUTE=3, PRODUCE_TARGET_EPS=100, CC_TARGET_TPS=10 (half the default load; make apply-env if the cluster is up)\n'
-  printf '      two browsers instead of four: make setup USERS=2, or make sim-start USERS=2 (about 300 MB each)\n'
+  printf '      in .env: SIM_USERS=2, SIM_ARRIVALS_PER_MINUTE=3, PRODUCE_TARGET_EPS=100, CC_TARGET_TPS=10\n'
+  printf '      (half the default load: two browsers of about 300 MB instead of four; if the cluster is up: make apply-env, then make sim-start)\n'
   printf '      if the machine still swaps: make sim-stop (the generators keep the clickstream flowing; orders come only from the shoppers)\n'
 else bad "memory ${mem_gb} GiB: the workshop needs at least 4 GB, 8 GB is comfortable (Docker Desktop: Settings > Resources)"; fi
 if [ "$cpus" -ge 4 ]; then ok "${cpus} CPUs (needs 4)"; else bad "${cpus} CPUs: the cluster needs 4"; fi
@@ -157,6 +157,14 @@ fi
 if [ "$(get CARD_GATEWAY_DOWN | tr '[:upper:]' '[:lower:]')" = "true" ]; then
   ok "CARD_GATEWAY_DOWN=true: card payments fail on purpose (the ClickStack exercise); make fix-card-gateway repairs them on a running cluster"
 fi
+
+# The browsers make sim-start and make setup start (D77). Not a secret, so it is shown.
+users=$(get SIM_USERS)
+case $users in
+  "") ;;
+  *[!0-9]*|0*) bad "SIM_USERS=$users must be a whole number from 1 (the browsers make sim-start starts)" ;;
+  *) ok "SIM_USERS=$users (browsers for make sim-start and make setup)" ;;
+esac
 
 # ── Databases (in the tools container) ───────────────────────────────────────
 echo "Databases"

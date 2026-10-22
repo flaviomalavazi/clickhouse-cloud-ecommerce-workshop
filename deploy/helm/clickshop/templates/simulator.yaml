@@ -21,7 +21,7 @@ spec:
           image: {{ include "clickshop.image" (dict "name" "clickshop-simulator" "root" .) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           # Arrival rate and dwell scale come from .env (SIM_ARRIVALS_PER_MINUTE,
-          # SIM_DWELL_SCALE). The browsers are set here, by `make sim-start USERS=n`.
+          # SIM_DWELL_SCALE). The browsers are set here, by `make sim-start` (SIM_USERS or USERS=n).
           envFrom: {{- include "clickshop.envFrom" . | nindent 12 }}
           env:
             # The storefront by its Service name. The pages use paths relative to

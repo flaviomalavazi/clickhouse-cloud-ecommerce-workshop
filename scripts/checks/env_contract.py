@@ -73,7 +73,7 @@ KNOWN = {
     "STOREFRONT_FAULTY_RATE": "generated faulty-transaction rate",
     "SIM_REALISTIC_FUNNEL": "simulator: use the shared conversion rates",
     "SIM_URL": "simulator target; the chart sets it",
-    "SIM_SESSIONS": "simulator browsers; `make sim-start USERS=n` sets it",
+    "SIM_SESSIONS": "simulator browsers; `make sim-start` sets it from SIM_USERS or USERS=n",
     "SIM_DURATION": "simulator run length",
     "SIM_DIURNAL": "simulator: scale arrivals by hour of day",
     "SIM_MAX_BACKLOG": "simulator queue cap",
@@ -110,6 +110,8 @@ PY_READ = [
 ]
 TS_READ = [r'process\.env\.([A-Z][A-Z0-9_]*)', r'process\.env\[\s*["\']([A-Z][A-Z0-9_]*)["\']']
 SH_READ = [r'\$\{([A-Z][A-Z0-9_]*)(?::[-?+=]|\})', r'\$([A-Z][A-Z0-9_]*)\b']
+# The Makefile and scripts read a setting of their own from .env through this helper (D77).
+ENV_VALUE_READ = r'env-value\.sh\s+([A-Z][A-Z0-9_]*)'
 SKIP_PARTS = ("node_modules", "/test_", "/tests/", "base_contents", ".next", "package-lock")
 
 
@@ -128,9 +130,16 @@ def read_by_code(files: list[str]) -> dict[str, set[str]]:
             patterns = TS_READ
         elif suffix == ".sh" and f.startswith(("otel-collector/", "data-generators/")):
             patterns = SH_READ     # the entrypoints that translate .env into what a process wants
+        elif f == "Makefile" or f.startswith("scripts/"):
+            patterns = None        # only their env-value.sh reads (below)
         else:
             continue
         text = (ROOT / f).read_text(errors="replace")
+        if f == "Makefile" or f.startswith("scripts/"):
+            for name in re.findall(ENV_VALUE_READ, text):
+                found.setdefault(name, set()).add(f)
+        if patterns is None:
+            continue
         # A shell variable the script assigns itself is a local, not configuration.
         local = set(re.findall(r"^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)=", text, re.M)) if suffix == ".sh" else set()
         for pattern in patterns:
