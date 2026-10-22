@@ -8,7 +8,7 @@ For the person who runs ClickShop for a group: what to arrange before the day, h
 
 | | Fast track (about 1 hour) | Guided track (about 4 hours) |
 |---|---|---|
-| What the participant does | The console steps of [module 01](01-cloud-services/README.md) (two services, access, an API key, `.env`), then `make setup`, then tours what it built. | Every module by hand, in order. |
+| What the participant does | The console steps of [module 01](en/01-cloud-services/README.md) (two services, access, an API key, `.env`), then `make setup`, then tours what it built. | Every module by hand, in order. |
 | What the facilitator does | Makes sure the services exist and the machines are ready; steers the tours. | Same, and walks the room through the waits. |
 | Ends with | Everything running locally and in the Cloud; the checks pass. | Same. |
 
@@ -31,7 +31,7 @@ What the participant builds, in one sentence: an online shop whose **orders live
 | **ClickStack** | Open it once from the participant's service (it creates its connection). | Otherwise the last step of `make setup` reports `NOT DONE` and tells them to open it and run `make clickstack-setup`. |
 | **ClickHouse Agents** (module 09) | A Beta feature, available in the participants' organizations (confirmed by the owner). Creating agents needs the **Create agent** option. | TODO(owner): the permission's name and where an admin grants it, and a console walk-through: module 09 is a draft until then. Decide whether to run it as a demo. |
 | **Langfuse Cloud** (module 09's optional final step) | Each participant who does it needs an email address and an **organization admin** role in ClickHouse Cloud, and creates a free Langfuse **Hobby** account (no card) in one region, EU or US. Keys belong to a region and a project. The ClickHouse side is a Public Beta for newly created chats. | TODO(owner): where ClickHouse Agents takes the keys (nothing documents it); whether participants should share one Langfuse project (a trace holds the whole conversation, so probably not); the Hobby plan's current limits. Decide whether to run it as a demo. |
-| **Cost** | The ClickHouse service and the Postgres instance bill while they exist, and the **$300 of ClickHouse Cloud trial credits cover the workshop** (confirmed by the owner). [Module 10](10-cleanup/README.md) removes both when it is over. | Nothing to arrange, as long as each participant is on a trial organization. |
+| **Cost** | The ClickHouse service and the Postgres instance bill while they exist, and the **$300 of ClickHouse Cloud trial credits cover the workshop** (confirmed by the owner). [Module 10](en/10-cleanup/README.md) removes both when it is over. | Nothing to arrange, as long as each participant is on a trial organization. |
 
 If someone is blocked at the console (a service will not start, a feature is missing), have **a spare set of services** ready, created beforehand, so they can continue with `.env` filled from yours (and then delete it).
 
@@ -91,13 +91,13 @@ A suggestion, to steer by. It assumes `make check-00` passes for everyone and th
 
 | Minutes | What | Notes |
 |---|---|---|
-| 0 to 10 | Welcome, the architecture, the console steps and `.env` ([module 01](01-cloud-services/README.md)) | `make doctor` is the gate. |
+| 0 to 10 | Welcome, the architecture, the console steps and `.env` ([module 01](en/01-cloud-services/README.md)) | `make doctor` is the gate. |
 | 10 to 20 | `make setup` | Talk while it runs (below). |
-| 20 to 30 | The CDC exercise ([module 03](03-cdc-clickpipe/README.md)) | The best ten minutes of the workshop: an order by hand, then its versions in ClickHouse. |
-| 30 to 36 | Search ([module 04](04-full-text-search/README.md)) and the storefront ([module 05](05-run-the-app/README.md)) | Place a real order and follow it. |
-| 36 to 44 | The dashboard and the shoppers ([module 06](06-real-time-analytics/README.md), [07](07-simulated-shoppers/README.md)) | The shoppers are already running. |
-| 44 to 54 | ClickStack and the break-and-fix exercise ([module 08](08-observability-clickstack/README.md)) | Run it as a demo if the room is behind. |
-| 54 to 60 | Agents ([module 09](09-clickhouse-agents/README.md)) and cleanup ([module 10](10-cleanup/README.md)) | Cleanup can be a handout: remind them that the services bill until deleted. |
+| 20 to 30 | The CDC exercise ([module 03](en/03-cdc-clickpipe/README.md)) | The best ten minutes of the workshop: an order by hand, then its versions in ClickHouse. |
+| 30 to 36 | Search ([module 04](en/04-full-text-search/README.md)) and the storefront ([module 05](en/05-run-the-app/README.md)) | Place a real order and follow it. |
+| 36 to 44 | The dashboard and the shoppers ([module 06](en/06-real-time-analytics/README.md), [07](en/07-simulated-shoppers/README.md)) | The shoppers are already running. |
+| 44 to 54 | ClickStack and the break-and-fix exercise ([module 08](en/08-observability-clickstack/README.md)) | Run it as a demo if the room is behind. |
+| 54 to 60 | Agents ([module 09](en/09-clickhouse-agents/README.md)) and cleanup ([module 10](en/10-cleanup/README.md)) | Cleanup can be a handout: remind them that the services bill until deleted. |
 
 The guided track is the module times in the README table: about four hours with breaks, and module 02 is optional.
 
@@ -152,7 +152,7 @@ It prints `[n/13]` lines. Use each wait:
 3. `make down` if the local cluster should go too; `make up` brings it back in about two minutes (`make start` brings back the generators and the shoppers too).
 4. Agent mode: delete `.workshop/progress.json`. In the console, delete the agent and its memories from module 09 if you want them gone.
 
-**Fresh services (full reset).** [Module 10](10-cleanup/README.md), in its order: the ClickPipe, then the Postgres instance, then the ClickHouse service, then the API key; then `rm .env assets/certs/*.pem`.
+**Fresh services (full reset).** [Module 10](en/10-cleanup/README.md), in its order: the ClickPipe, then the Postgres instance, then the ClickHouse service, then the API key; then `rm .env assets/certs/*.pem`.
 
 **Local leftovers.** `.workshop/` holds the kubeconfig, the downloaded chart and the agent's progress. It is safe to delete once the cluster is down.
 
@@ -161,7 +161,7 @@ It prints `[n/13]` lines. Use each wait:
 Settled by the owner: Managed Postgres, Postgres CDC ClickPipes and ClickHouse Agents are available in the participants' organizations; the cost is covered by the $300 trial credits; prebuilt images on GHCR will **not** be published (the images are always built on the participant's machine); `CARD_GATEWAY_DOWN=true` in `.env` is intentional.
 
 1. The tier of the services the workshop was tested with (the Postgres size in particular).
-2. ClickHouse Agents: the permission to create agents, where an admin grants it, and the console walk-through of [module 09](09-clickhouse-agents/README.md) (its list of questions is in `docs/decisions.md`, section "Phase 9"), including where the Langfuse credentials are entered (the optional final step: see [the Langfuse page](09-clickhouse-agents/langfuse.md)).
+2. ClickHouse Agents: the permission to create agents, where an admin grants it, and the console walk-through of [module 09](en/09-clickhouse-agents/README.md) (its list of questions is in `docs/decisions.md`, section "Phase 9"), including where the Langfuse credentials are entered (the optional final step: see [the Langfuse page](en/09-clickhouse-agents/langfuse.md)).
 3. Co-authoring and checking the analyst's candidate questions (ten so far) in `agents/clickshop-analyst/questions.md`.
 4. Shared organization or one each, and how the services' credentials reach the participants (pre-provisioning for the one-hour format).
 5. The console steps of modules 01 and 03, walked through once on a clean organization (the labels were confirmed in the Phase 7 review; the flow has not been timed).

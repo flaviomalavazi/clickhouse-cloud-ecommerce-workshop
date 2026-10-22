@@ -13,7 +13,7 @@ You will:
 5. stream synthetic **clickstream and card transactions** straight into ClickHouse and watch a real-time analytics dashboard;
 6. let **browser-driven shoppers** place real orders that change Postgres and flow into ClickHouse;
 7. observe the whole system in **ClickStack**: traces and the service map, logs with full-text search, session replays and Kubernetes infrastructure;
-8. explore the data with **ClickHouse Agents**, and, if you want, watch what the agent does with **Langfuse Cloud** (an optional final step, [in module 09](workshop/09-clickhouse-agents/langfuse.md)).
+8. explore the data with **ClickHouse Agents**, and, if you want, watch what the agent does with **Langfuse Cloud** (an optional final step, [in module 09](workshop/en/09-clickhouse-agents/langfuse.md)).
 
 ## What you will build
 
@@ -56,7 +56,7 @@ The full picture (the four data paths, the checkout, how fresh each thing is) is
 
 ## Two ways to follow it
 
-**The one-hour way.** Create the two Cloud services and an API key, fill in `.env` ([module 01](workshop/01-cloud-services/README.md)), and run **`make setup`**. It builds everything modules 01 to 08 build by hand (the ClickPipe and the ClickStack sources through the Cloud API, search, the real-time rollups, the local cluster and application, 30 days of history, the live generators and the browser shoppers) in about ten minutes (once `make prefetch` from module 00 has built the images), so the hour goes on reading the modules, looking at what was built and exploring it in ClickHouse Cloud.
+**The one-hour way.** Create the two Cloud services and an API key, fill in `.env` ([module 01](workshop/en/01-cloud-services/README.md)), and run **`make setup`**. It builds everything modules 01 to 08 build by hand (the ClickPipe and the ClickStack sources through the Cloud API, search, the real-time rollups, the local cluster and application, 30 days of history, the live generators and the browser shoppers) in about ten minutes (once `make prefetch` from module 00 has built the images), so the hour goes on reading the modules, looking at what was built and exploring it in ClickHouse Cloud.
 
 **The slow way.** Follow the modules in order. Each one describes the same steps by hand, ends with a check (`make check-NN`; module 09 lives in the console, so it has none) and leaves the system working. Module 02 is optional.
 
@@ -76,17 +76,17 @@ Times are for a first run by hand, including the waiting.
 
 | | Module | You learn | Time |
 |---|---|---|---|
-| 00 | [Prerequisites](workshop/00-prerequisites/README.md) | What the workshop needs; download everything **before the day** | 15 min + download |
-| 01 | [Cloud services](workshop/01-cloud-services/README.md) | Create the ClickHouse and Postgres services; the single `.env`; load Postgres | 20 min |
-| 02 | [Postgres OLTP](workshop/02-postgres-oltp/README.md) *(optional)* | Tour the transactional data; why it lives in Postgres | 10 min |
-| 03 | [CDC ClickPipe](workshop/03-cdc-clickpipe/README.md) | Replicate Postgres into ClickHouse; `ReplacingMergeTree` and `FINAL` | 25 min |
-| 04 | [Full-text search](workshop/04-full-text-search/README.md) | The `text` index, refreshable materialized views | 20 min |
-| 05 | [Run the app](workshop/05-run-the-app/README.md) | The storefront on k3d; follow an order into ClickHouse | 25 min |
-| 06 | [Real-time analytics](workshop/06-real-time-analytics/README.md) | Incremental materialized views; why large batches | 30 min |
-| 07 | [Simulated shoppers](workshop/07-simulated-shoppers/README.md) | Orders from browsers; join Postgres and the clickstream | 30 min |
-| 08 | [Observability with ClickStack](workshop/08-observability-clickstack/README.md) | Traces, logs, replays, infrastructure; break and fix | 40 min |
-| 09 | [ClickHouse Agents](workshop/09-clickhouse-agents/README.md) | Build an agent, ask the data questions in plain language, check its answers *(draft: being verified in the console)* | 25 min |
-| 10 | [Cleanup](workshop/10-cleanup/README.md) | Remove everything, in the right order | 10 min |
+| 00 | [Prerequisites](workshop/en/00-prerequisites/README.md) | What the workshop needs; download everything **before the day** | 15 min + download |
+| 01 | [Cloud services](workshop/en/01-cloud-services/README.md) | Create the ClickHouse and Postgres services; the single `.env`; load Postgres | 20 min |
+| 02 | [Postgres OLTP](workshop/en/02-postgres-oltp/README.md) *(optional)* | Tour the transactional data; why it lives in Postgres | 10 min |
+| 03 | [CDC ClickPipe](workshop/en/03-cdc-clickpipe/README.md) | Replicate Postgres into ClickHouse; `ReplacingMergeTree` and `FINAL` | 25 min |
+| 04 | [Full-text search](workshop/en/04-full-text-search/README.md) | The `text` index, refreshable materialized views | 20 min |
+| 05 | [Run the app](workshop/en/05-run-the-app/README.md) | The storefront on k3d; follow an order into ClickHouse | 25 min |
+| 06 | [Real-time analytics](workshop/en/06-real-time-analytics/README.md) | Incremental materialized views; why large batches | 30 min |
+| 07 | [Simulated shoppers](workshop/en/07-simulated-shoppers/README.md) | Orders from browsers; join Postgres and the clickstream | 30 min |
+| 08 | [Observability with ClickStack](workshop/en/08-observability-clickstack/README.md) | Traces, logs, replays, infrastructure; break and fix | 40 min |
+| 09 | [ClickHouse Agents](workshop/en/09-clickhouse-agents/README.md) | Build an agent, ask the data questions in plain language, check its answers *(draft: being verified in the console)* | 25 min |
+| 10 | [Cleanup](workshop/en/10-cleanup/README.md) | Remove everything, in the right order | 10 min |
 
 About four hours by hand, and about one hour with `make setup`. If you are running this for a group, ask everyone to finish module 00 beforehand, and read the [facilitator guide](workshop/FACILITATOR.md).
 
@@ -147,7 +147,9 @@ Everything is configured in **`.env`** at the root of the repo. You create it fr
 ## Where things are
 
 ```text
-workshop/                 the modules (human mode: this is what you follow)
+workshop/en/              the modules in English (human mode: this is what you follow)
+workshop/es/              the same modules in Spanish
+workshop/FACILITATOR.md   the facilitator guide (English only)
 AGENTS.md, agent-mode/    agent mode: the rulebook and one playbook per module
 Makefile                  every command
 .env.example              the one configuration template

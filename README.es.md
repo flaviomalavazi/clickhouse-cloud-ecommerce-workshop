@@ -147,7 +147,9 @@ Todo se configura en **`.env`**, en la raíz del repositorio. Lo creas a partir 
 ## Dónde está cada cosa
 
 ```text
-workshop/                 the modules (human mode: this is what you follow)
+workshop/en/              the modules in English (human mode: this is what you follow)
+workshop/es/              the same modules in Spanish
+workshop/FACILITATOR.md   the facilitator guide (English only)
 AGENTS.md, agent-mode/    agent mode: the rulebook and one playbook per module
 Makefile                  every command
 .env.example              the one configuration template

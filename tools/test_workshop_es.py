@@ -16,7 +16,7 @@ from test_workshop_docs import MODULES, header_minutes, missing_paths, table_min
 
 pytestmark = pytest.mark.skipif(not (ROOT / "workshop").exists(), reason="the repo is not mounted")
 
-LANGFUSE = ROOT / "workshop" / "09-clickhouse-agents" / "langfuse.md"
+LANGFUSE = ROOT / "workshop" / "en" / "09-clickhouse-agents" / "langfuse.md"
 PAIRS = [(ROOT / "README.md", ROOT / "README.es.md")]
 PAIRS += [(m, ROOT / "workshop" / "es" / m.parent.name / "README.md") for m in MODULES]
 PAIRS += [(LANGFUSE, ROOT / "workshop" / "es" / LANGFUSE.parent.name / LANGFUSE.name)]

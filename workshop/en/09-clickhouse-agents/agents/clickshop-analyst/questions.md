@@ -2,7 +2,7 @@
 
 # TODO(owner): co-author the questions for `clickshop-analyst`
 
-> **Candidates, not final wording.** The questions the workshop uses are chosen and phrased together with the workshop's owner. Each candidate below says where its answer lives, how to **check** it (SQL that was run against a live workshop, so a participant can compare), and what a **wrong** answer tends to look like. Numbers in the checks depend on your data. The facts behind them are in [`docs/data-dictionary.md`](../../../../docs/data-dictionary.md).
+> **Candidates, not final wording.** The questions the workshop uses are chosen and phrased together with the workshop's owner. Each candidate below says where its answer lives, how to **check** it (SQL that was run against a live workshop, so a participant can compare), and what a **wrong** answer tends to look like. Numbers in the checks depend on your data. The facts behind them are in [`docs/data-dictionary.md`](../../../../../docs/data-dictionary.md).
 
 | # | Theme | Candidate wording | Lives in | Check with | A wrong answer usually |
 |---|---|---|---|---|---|
