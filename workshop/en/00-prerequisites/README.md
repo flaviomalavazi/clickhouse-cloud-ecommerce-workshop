@@ -35,7 +35,7 @@ Tested on macOS (Apple silicon) with OrbStack. Docker Desktop and Colima work th
    make prefetch
    ```
 
-   It pulls the tool images and the Kubernetes node image, builds the tools image (Python and `psql`, for the database tasks) and the six workshop images (storefront, demo services, Snowplow bridge, OpenTelemetry gateway, generators, simulator), pulls Snowplow Micro and the OpenTelemetry collector, downloads the collector's Helm chart and pulls the ClickHouse client image. It needs the internet **once**. Run it again whenever you like; whatever is already there is skipped.
+   It pulls the tool images and the Kubernetes node image, builds the tools image (Python and `psql`, for the database tasks) and the six workshop images (storefront, demo services, Snowplow bridge, OpenTelemetry gateway, generators, simulator), pulls Snowplow Micro and the OpenTelemetry collector and downloads the collector's Helm chart. It needs the internet **once**. Run it again whenever you like; whatever is already there is skipped.
 
 5. **Check:**
 
