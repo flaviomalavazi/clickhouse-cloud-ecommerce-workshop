@@ -26,7 +26,7 @@ NEEDS_A_TERMINAL = {"psql", "ch-client", "notebook", "logs"}
 # Paths a participant creates on their machine: named in the texts, never in the repository.
 CREATED_BY_THE_PARTICIPANT = {"assets/certs/ca-certificate.pem"}
 # Written for the participant, used by both modes: the agent a participant builds in module 09.
-SHARED_ASSETS = "workshop/09-clickhouse-agents/agents/"
+SHARED_ASSETS = "workshop/en/09-clickhouse-agents/agents/"
 PATH_ROOTS = ("workshop", "sql", "deploy", "scripts", "tools", "docs", "agent-mode", "assets", "notebooks", ".claude", "frontend", "data-generators")
 
 

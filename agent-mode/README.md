@@ -2,7 +2,7 @@
 
 `AGENTS.md` at the root is the rulebook (role, golden rules, what to ask first). This file is how to do the job well: the tracks, how to read a playbook, the progress file, and how to talk to the participant. The playbooks (`00-prerequisites.md` to `10-cleanup.md`) are the lesson plans.
 
-These files are **your** source. They are not the human READMEs in `workshop/`, which tell the same story to a person reading alone, and you do not need them. What the two share is the executable truth: the `make` targets, `scripts/checks/check-NN.sh` and the SQL files under `sql/`. When a playbook and a command disagree, the command is right: say so, and carry on with the command's behaviour.
+These files are **your** source. They are not the human READMEs in `workshop/en/` and `workshop/es/`, which tell the same story to a person reading alone, and you do not need them. What the two share is the executable truth: the `make` targets, `scripts/checks/check-NN.sh` and the SQL files under `sql/`. When a playbook and a command disagree, the command is right: say so, and carry on with the command's behaviour.
 
 ## The two tracks
 

@@ -1,6 +1,6 @@
 # ClickShop data dictionary
 
-What every table of the workshop holds, in the words the shop uses, and the rules a query has to follow to get a right answer. It is the reference for anyone writing a question, and the raw material for the **ClickHouse Agents** instructions in [module 09](../workshop/09-clickhouse-agents/README.md).
+What every table of the workshop holds, in the words the shop uses, and the rules a query has to follow to get a right answer. It is the reference for anyone writing a question, and the raw material for the **ClickHouse Agents** instructions in [module 09](../workshop/en/09-clickhouse-agents/README.md).
 
 Checked against a running workshop on 2026-10-21. Row counts are from that run and are only there to give a sense of size: yours will differ, and the live tables grow while the generators and shoppers run.
 

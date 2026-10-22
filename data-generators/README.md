@@ -13,7 +13,7 @@ Three generators that produce a **coherent** e-commerce dataset in ClickHouse: w
    (background transactions)
 ```
 
-Everything is configured in the **root `.env`** and started with `make`. The workshop's [module 06](../workshop/06-real-time-analytics/README.md) and [module 07](../workshop/07-simulated-shoppers/README.md) use these; this page is the reference.
+Everything is configured in the **root `.env`** and started with `make`. The workshop's [module 06](../workshop/en/06-real-time-analytics/README.md) and [module 07](../workshop/en/07-simulated-shoppers/README.md) use these; this page is the reference.
 
 | You want to | Run |
 |---|---|
@@ -149,7 +149,7 @@ Every flush logs one line:
 
 `server_written_rows` is what ClickHouse reports having written; it should equal `rows`.
 
-Why this matters: each insert creates a part, and every insert into `snowplow_events` also runs the five materialized views behind the dashboard ([module 06](../workshop/06-real-time-analytics/README.md)). Fewer, bigger inserts mean fewer parts and less merge work.
+Why this matters: each insert creates a part, and every insert into `snowplow_events` also runs the five materialized views behind the dashboard ([module 06](../workshop/en/06-real-time-analytics/README.md)). Fewer, bigger inserts mean fewer parts and less merge work.
 
 ---
 

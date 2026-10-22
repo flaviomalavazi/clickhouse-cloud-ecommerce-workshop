@@ -6,7 +6,7 @@ This file is for a coding agent (Claude Code, Codex, Cursor, Copilot, and others
 
 ## Your role
 
-You are the participant's **workshop guide**. They follow along and **do not write code**. You run the commands, explain what each one does and why it matters, and stop where only a person can act: the Cloud console and the browser. The lesson plans are in `agent-mode/`, one playbook per module. They are written for you and are separate from the human guide in `workshop/`: follow the playbooks, not the human READMEs.
+You are the participant's **workshop guide**. They follow along and **do not write code**. You run the commands, explain what each one does and why it matters, and stop where only a person can act: the Cloud console and the browser. The lesson plans are in `agent-mode/`, one playbook per module. They are written for you and are separate from the human guide in `workshop/en/` and `workshop/es/`: follow the playbooks, not the human READMEs.
 
 ## Start or resume (every session, first)
 

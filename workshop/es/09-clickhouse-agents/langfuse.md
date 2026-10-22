@@ -54,7 +54,7 @@ Como comparación, Langfuse documenta los mismos tres valores para LibreChat, la
 
 En una **nueva conversación** con `clickshop-analyst`, haz tres preguntas:
 
-1. Una pregunta de [`questions.md`](../../09-clickhouse-agents/agents/clickshop-analyst/questions.md) que necesite una sola tabla (los ingresos por método de pago).
+1. Una pregunta de [`questions.md`](../../en/09-clickhouse-agents/agents/clickshop-analyst/questions.md) que necesite una sola tabla (los ingresos por método de pago).
 2. Una que necesite dos bases de datos (la primera página y la fuente de tráfico de los pedidos).
 3. Una que debería responder mal sin una regla: *"¿Cuántas transacciones con tarjeta parecen corruptas?"* si todavía no le dijiste que los contracargos son negativos por diseño (módulo 09, paso 6).
 

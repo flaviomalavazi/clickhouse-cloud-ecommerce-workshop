@@ -34,7 +34,7 @@ En el Agent Builder haz clic en **Create New Agent**, en la parte superior del p
 | **Name** | `clickshop-analyst` |
 | **Description** | para qué sirve, en una frase que entienda un compañero de equipo (el campo es visible para las personas con quienes lo compartes) |
 | **Category** | `General` |
-| **Instructions** | el prompt de sistema: su rol, las tablas que debe usar, las reglas de negocio. [`agents/clickshop-analyst/instructions.md`](../../09-clickhouse-agents/agents/clickshop-analyst/instructions.md) tiene el texto (un borrador que está revisando el responsable del taller): primero reemplaza los dos marcadores por los IDs de tu organización y de tu servicio |
+| **Instructions** | el prompt de sistema: su rol, las tablas que debe usar, las reglas de negocio. [`agents/clickshop-analyst/instructions.md`](../../en/09-clickhouse-agents/agents/clickshop-analyst/instructions.md) tiene el texto (un borrador que está revisando el responsable del taller): primero reemplaza los dos marcadores por los IDs de tu organización y de tu servicio |
 | **Model** | elige uno del menú desplegable |
 
 Las instrucciones son la parte que más importa. Todo lo que el agente debe saber sobre ClickShop y no puede adivinar va ahí: que las tablas replicadas de Postgres se leen con `FINAL` y `_peerdb_is_deleted = 0`, que los precios están en USD, qué eventos forman el embudo. [`docs/data-dictionary.md`](../../../docs/data-dictionary.md) lo enumera todo, tabla por tabla: adjúntalo al agente como **File Context**, y las instrucciones hacen referencia a él.
@@ -49,7 +49,7 @@ Para un analista de tus propios datos, deja activo lo que necesitas para leer lo
 
 ### 4. Haz las primeras preguntas
 
-Guarda el agente, abre una **nueva conversación** y selecciona `clickshop-analyst` en el selector de agentes. Pregúntale primero algo que necesite una sola tabla y luego algo que necesite dos bases de datos. [`agents/clickshop-analyst/questions.md`](../../09-clickhouse-agents/agents/clickshop-analyst/questions.md) tiene preguntas candidatas que cubren toda la tienda: ingresos, el embudo, búsquedas que no encontraron nada, inventario, la frescura de la réplica, anomalías en tarjetas. (El ejemplo de la propia documentación es "¿Cuáles son mis 10 tablas con más filas esta semana?")
+Guarda el agente, abre una **nueva conversación** y selecciona `clickshop-analyst` en el selector de agentes. Pregúntale primero algo que necesite una sola tabla y luego algo que necesite dos bases de datos. [`agents/clickshop-analyst/questions.md`](../../en/09-clickhouse-agents/agents/clickshop-analyst/questions.md) tiene preguntas candidatas que cubren toda la tienda: ingresos, el embudo, búsquedas que no encontraron nada, inventario, la frescura de la réplica, anomalías en tarjetas. (El ejemplo de la propia documentación es "¿Cuáles son mis 10 tablas con más filas esta semana?")
 
 El agente planifica, llama a sus herramientas y responde con una tabla o un gráfico.
 

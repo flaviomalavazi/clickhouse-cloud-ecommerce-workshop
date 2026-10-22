@@ -37,7 +37,7 @@ In the Agent Builder click **Create New Agent** at the top of the left panel and
 | **Instructions** | the system prompt: its role, the tables it should use, the business rules. [`agents/clickshop-analyst/instructions.md`](agents/clickshop-analyst/instructions.md) has the text (a draft the workshop's owner is reviewing): replace the two placeholders with your organization and service ids first |
 | **Model** | pick one from the dropdown |
 
-The instructions are the part that matters most. Everything the agent should know about ClickShop and cannot guess goes there: that the replicated Postgres tables are read with `FINAL` and `_peerdb_is_deleted = 0`, that prices are in USD, which events make the funnel. [`docs/data-dictionary.md`](../../docs/data-dictionary.md) lists all of it, table by table: attach it to the agent as **File Context**, and the instructions refer to it.
+The instructions are the part that matters most. Everything the agent should know about ClickShop and cannot guess goes there: that the replicated Postgres tables are read with `FINAL` and `_peerdb_is_deleted = 0`, that prices are in USD, which events make the funnel. [`docs/data-dictionary.md`](../../../docs/data-dictionary.md) lists all of it, table by table: attach it to the agent as **File Context**, and the instructions refer to it.
 
 ### 3. Choose what it can do
 

@@ -35,10 +35,10 @@ An agent is **instructions** (who it is, what it knows, what rules it follows), 
 
 "Click **Create New Agent** at the top of the left panel and fill in: **Name** `clickshop-analyst`; **Description** a sentence a teammate would understand; **Category** `General`; **Instructions**; **Model** (pick one from the dropdown)." If there is no **Create New Agent**, they need the **Create agent** option, which an organization admin grants.
 
-The instructions are the part that matters. Their text is in `workshop/09-clickhouse-agents/agents/clickshop-analyst/instructions.md`. The participant reads the chat, not your terminal, so print it **in your reply**, as a code block, without the first line (an HTML comment addressed to the owner):
+The instructions are the part that matters. Their text is in `workshop/en/09-clickhouse-agents/agents/clickshop-analyst/instructions.md`. The participant reads the chat, not your terminal, so print it **in your reply**, as a code block, without the first line (an HTML comment addressed to the owner):
 
 ```bash
-sed '/^<!--/d' workshop/09-clickhouse-agents/agents/clickshop-analyst/instructions.md
+sed '/^<!--/d' workshop/en/09-clickhouse-agents/agents/clickshop-analyst/instructions.md
 ```
 
 Then tell them, in this order: (1) replace the two placeholders, `<ORG_ID>` and `<SERVICE_ID>`, with their own organization id and service id (they are not secrets; `make cloud-ids` prints both, if they have an API key); (2) attach `docs/data-dictionary.md` to the agent as **File Context**, because the text refers to it; (3) paste the text into the **Instructions** field themselves.
@@ -51,7 +51,7 @@ There is one path. If the first line of the file mentions `TODO(owner)`, the tex
 
 ### 6. `first-questions` [PARTICIPANT DOES — console] Ask the first questions
 
-"Save the agent, open a **new conversation**, select `clickshop-analyst` in the agent picker, and ask." Start with a question on one table, then one that needs two databases. The candidate questions are in `workshop/09-clickhouse-agents/agents/clickshop-analyst/questions.md`, with the SQL to check each. While they ask, run the check yourself so you already know the right answer, for example:
+"Save the agent, open a **new conversation**, select `clickshop-analyst` in the agent picker, and ask." Start with a question on one table, then one that needs two databases. The candidate questions are in `workshop/en/09-clickhouse-agents/agents/clickshop-analyst/questions.md`, with the SQL to check each. While they ask, run the check yourself so you already know the right answer, for example:
 
 ```bash
 make ch-query FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2
