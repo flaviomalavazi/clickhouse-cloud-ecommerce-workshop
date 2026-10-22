@@ -138,7 +138,8 @@ Ejecuta `make help` para ver la lista completa. Los que usarás:
 | `make check-NN` | comprobar el final del módulo NN |
 | `make apply-env` | después de cambiar `.env`: actualizar el clúster |
 | `make nuke-data` | devolver los pedidos y el inventario a los datos iniciales (los eventos y la telemetría se conservan) |
-| `make down` | eliminar el clúster local |
+| `make stop` | detener el clúster local y conservarlo: `make up` lo trae de vuelta tal como estaba, en unos dos minutos |
+| `make down` | eliminar el clúster local (tus imágenes de Docker se conservan) |
 
 ## Un solo archivo de configuración
 

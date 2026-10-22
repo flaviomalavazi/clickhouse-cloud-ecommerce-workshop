@@ -21,6 +21,8 @@ make down
 
 `make down` deletes the k3d cluster: the three node containers and the load balancer, their network and their volume, and everything that ran inside them. Nothing in the cloud is touched, and your Docker images are kept (they are what makes the next start two minutes instead of ten). Delete them too if you want the disk back: `docker image prune -a` removes every unused image, so use it only if nothing else of yours needs them.
 
+Only pausing, to come back another day? Then do not clean up: `make stop` stops the cluster and keeps it, and `make up` brings it back as it was. The cloud services keep running (and using credit) until you stop them in the console.
+
 ### 2. Delete the cloud services, in this order
 
 In the ClickHouse Cloud console:

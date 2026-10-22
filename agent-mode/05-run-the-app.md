@@ -114,7 +114,7 @@ make check-05
 - **What runs where:** the application, the generators and the simulator on the laptop (Kubernetes in Docker); the database, search and observability in ClickHouse Cloud. The app talks to both clouds over TLS.
 - **One write, three destinations:** a Postgres transaction is the source; ClickHouse gets it through CDC (a minute); search gets it through the refreshable view (up to five more). Each hop has a number, and the participant just measured them.
 - **Why the order is `confirmed`:** the app inserts then confirms within seconds; CDC delivers the changes batched, so the analytical side sees the end state. Know which questions can only be answered from the transactional side.
-- **Looking around Kubernetes:** nodes, pods, services, ingress. The cluster is disposable: `make down` and `make up` bring it back in minutes.
+- **Looking around Kubernetes:** nodes, pods, services, ingress. The cluster is disposable: `make down` and `make up` bring it back in minutes, and `make stop` pauses it without deleting anything.
 
 ## Checkpoint
 
