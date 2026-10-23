@@ -128,6 +128,7 @@ Todos los pods están listos, la tienda responde en el puerto 3000, el catálogo
 | Tu pedido no está en ClickHouse después de dos minutos | El ClickPipe va retrasado o está detenido: mira su página en la consola. |
 | Cambiaste `.env` | `make apply-env` actualiza el Secret y reinicia los pods que lo leen. |
 | Los pods son desalojados, o Docker va lento | El disco de Docker está casi lleno: `docker system df`, y deja 10 GB libres. |
+| Un comando falla con `UPGRADE FAILED: context deadline exceeded`, o los pods se quedan en `Pending` o `Terminating` | Lo habitual es que Docker se haya reiniciado o actualizado con el clúster en marcha y haya dejado un nodo en `NotReady`: ejecuta `make up` (reinicia los nodos trabados) y luego el comando de nuevo. |
 
 ## Para ir más lejos
 

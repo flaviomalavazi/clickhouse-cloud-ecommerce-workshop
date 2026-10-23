@@ -132,6 +132,7 @@ make check-05
 | Their order is not in ClickHouse after two minutes | `make clickpipes-status`; `make status` | The pipe is behind or stopped: ask them to look at its page in the console. |
 | They changed `.env` | n/a | `make apply-env` updates the Secret and restarts the pods that read it. |
 | Pods are evicted, or Docker is slow | `docker system df` | Docker's disk is nearly full: they need about 10 GB free; `docker builder prune -f` is safe. |
+| A command fails with `UPGRADE FAILED: context deadline exceeded`, or pods stay `Pending` or `Terminating` (usually after Docker restarted or updated) | `deploy/bin/kubectl get nodes` | A node is `NotReady`: `make up` restarts the stuck nodes. Then run the command that failed again. |
 
 ## Fast track
 

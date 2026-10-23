@@ -17,6 +17,28 @@ exists() { "$K3D" cluster list --no-headers 2>/dev/null | awk '{print $1}' | gre
 # not exist. Drop those lines; every other line, and k3d's exit status, is kept.
 quiet() { "$@" 2>&1 | { grep -vE 'default kubeconfig|You can now use it like this|^export KUBECONFIG=|^kubectl cluster-info' || true; }; }
 
+# When Docker restarts under a running cluster (an update, a reboot), k3s can start on a
+# node before the node's network is up, and exit. The container keeps running, so nothing
+# starts k3s again and the node stays NotReady. Restart those nodes' containers.
+# Not grep -q: it would stop reading early and pipefail would count ps's broken pipe.
+k3s_running() { docker exec "$1" ps -o args 2>/dev/null | grep -E '^/bin/k3s (server|agent)' >/dev/null; }
+revive_nodes() {
+  local node stuck=()
+  for node in $(docker ps --filter "label=k3d.cluster=$NAME" --format '{{.Names}} {{.Label "k3d.role"}}' \
+                  | awk '$2 == "server" || $2 == "agent" {print $1}'); do
+    k3s_running "$node" || { sleep 5; k3s_running "$node"; } || stuck+=("$node")
+  done
+  [ ${#stuck[@]} -gt 0 ] || return 0
+  echo "k3s is not running on ${stuck[*]} (Docker restarted under the cluster): restarting them"
+  docker restart "${stuck[@]}" >/dev/null
+  # A restarted server takes a while to answer again, and kubectl wait gives up at once until it does.
+  local i
+  for i in $(seq 30); do
+    deploy/bin/kubectl get --raw /readyz >/dev/null 2>&1 && return 0
+    sleep 3
+  done
+}
+
 case ${1:-} in
   up)
     mkdir -p .workshop
@@ -33,7 +55,12 @@ case ${1:-} in
     "$K3D" kubeconfig get "$NAME" \
       | sed -E "s#server: https://[^:]+:[0-9]+#server: https://k3d-${NAME}-serverlb:6443#" \
       > .workshop/kubeconfig
-    deploy/bin/kubectl wait --for=condition=Ready nodes --all --timeout=120s
+    revive_nodes
+    deploy/bin/kubectl wait --for=condition=Ready nodes --all --timeout=120s || {
+      echo "ERROR: the cluster's nodes are not Ready (deploy/bin/kubectl get nodes shows which)." >&2
+      echo "Restart Docker and run make up again; if they still are not, make down and make up rebuild the cluster." >&2
+      exit 1
+    }
     ;;
   stop)
     # The containers keep the application, the images loaded into the nodes and the Helm values,
