@@ -1,4 +1,4 @@
-# The workshop cluster: one server and two agents (D19), Kubernetes pinned by
+# The workshop cluster: one server and two agents, Kubernetes pinned by
 # the k3s image. Created by `make cluster`.
 apiVersion: k3d.io/v1alpha5
 kind: Simple

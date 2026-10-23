@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Print one setting from the root .env: the last `NAME=value` line, as written, without a trailing CR.
 # Prints nothing when .env or the name is missing. For the few settings the Makefile and scripts
-# need themselves (D27: make never parses .env); never use it for a secret.
+# need themselves (make never parses .env); never use it for a secret.
 #
 #   scripts/env-value.sh SIM_USERS
 set -u

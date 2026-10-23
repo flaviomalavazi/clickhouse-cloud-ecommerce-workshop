@@ -110,7 +110,7 @@ PY_READ = [
 ]
 TS_READ = [r'process\.env\.([A-Z][A-Z0-9_]*)', r'process\.env\[\s*["\']([A-Z][A-Z0-9_]*)["\']']
 SH_READ = [r'\$\{([A-Z][A-Z0-9_]*)(?::[-?+=]|\})', r'\$([A-Z][A-Z0-9_]*)\b']
-# The Makefile and scripts read a setting of their own from .env through this helper (D77).
+# The Makefile and scripts read a setting of their own from .env through this helper.
 ENV_VALUE_READ = r'env-value\.sh\s+([A-Z][A-Z0-9_]*)'
 SKIP_PARTS = ("node_modules", "/test_", "/tests/", "base_contents", ".next", "package-lock")
 

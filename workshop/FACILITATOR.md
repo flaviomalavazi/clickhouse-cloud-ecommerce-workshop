@@ -115,7 +115,7 @@ It prints `[n/13]` lines. Use each wait:
 | ClickStack sources | The observability data is in the same service as the orders. |
 | History, generators, shoppers | Large batches, and traffic that is real (browsers clicking the real page). |
 
-`make setup` leaves the generators and the shoppers running: they write about 200 events and 20 card transactions a second into the participant's service until `make traffic-stop`.
+`make setup` leaves the generators and the shoppers running: they write about 100 events and 10 card transactions a second (the load in `.env.example`, half the full one) into the participant's service until `make traffic-stop`. [COMMANDS.md](../COMMANDS.md) says how to raise it.
 
 ### Seeing who is stuck
 
@@ -135,7 +135,7 @@ It prints `[n/13]` lines. Use each wait:
 | `Cloud API ... 401` or `403` | The API key is wrong or is not an Admin key | Create it again (module 01, step 6). |
 | `make setup` ends with `NOT DONE` for ClickStack | ClickStack was never opened for the service | Open it once from the service in the console, then `make clickstack-setup`. |
 | `check-03`: not in step with Postgres | The ClickPipe is behind | Wait one sync interval (60 s) and run it again. |
-| `check-07` or `check-08`: no order of a payment method, no traces from a service | The shoppers have not run long enough | About ten minutes. |
+| `check-07` or `check-08`: no order of a payment method, no traces from a service | The shoppers have not run long enough | About twenty minutes at the load in `.env.example`, ten at the full load. |
 | **Every card payment fails on a new cluster** | Expected when `CARD_GATEWAY_DOWN=true` is in `.env` (the gateway reads it from there): it is how the demo gives ClickStack errors to show. `make doctor` says so. | To stop it, remove the line and run `make apply-env` if the cluster is running (`make fix-card-gateway` works until the cluster is recreated). |
 | Search finds nothing, or shows the old stock | `products_search` is rebuilt every five minutes | `SYSTEM REFRESH VIEW retail_analytics.products_search_refresh` then `SYSTEM WAIT VIEW ...` (the first only starts it). |
 | The dashboard's "right now" tiles, or a "last hour" question, are empty | The load is stopped | `make traffic-start`. |

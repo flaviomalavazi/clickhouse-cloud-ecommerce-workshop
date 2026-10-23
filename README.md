@@ -62,7 +62,7 @@ The full picture (the four data paths, the checkout, how fresh each thing is) is
 
 You can also mix them: `make setup` is safe to run at any point, it skips what is done, and every piece has its own command (`make clickpipes`, `make ch-search`, `make ch-mvs`, `make clickstack-setup`, ...).
 
-After `make setup` everything already runs, so each module becomes a tour: its check passes from the start and the steps that create things change nothing. Note that `make setup` leaves the generators and the shoppers running: they write about 200 events and 20 card transactions a second into your ClickHouse service until you run `make traffic-stop`.
+After `make setup` everything already runs, so each module becomes a tour: its check passes from the start and the steps that create things change nothing. Note that `make setup` leaves the generators and the shoppers running: they write about 100 events and 10 card transactions a second (the load in `.env.example`) into your ClickHouse service until you run `make traffic-stop`.
 
 ## Human mode and agent mode
 
@@ -117,29 +117,17 @@ Tested on macOS (Apple silicon) with OrbStack.
 
 ## Commands
 
-Run `make help` for the full list. The ones you will use:
+Four steps take you from a clean laptop to the running demo, and back:
 
-| | |
-|---|---|
-| `make prefetch` | download and build everything (module 00) |
-| `make doctor` | check Docker, `.env` (shown masked) and both databases |
-| `make setup` | **everything at once** (needs the API key): ClickPipe, search, rollups, cluster, ClickStack sources, history and load |
-| `make ch-bootstrap`, `make pg-setup`, `make ch-search`, `make ch-mvs` | create the databases and tables, set up Postgres (`pg-migrate` then `pg-seed`), build search, create the rollups |
-| `make clickpipes`, `make clickpipes-status`, `make clickstack-setup`, `make notebook` | the ClickPipe and the ClickStack sources through the Cloud API; the notebook that shows the ClickPipe request |
-| `make psql`, `make ch-client` | a SQL prompt on Postgres, on ClickHouse |
-| `make ch-query Q="SELECT 1"`, `make pg-query Q="SELECT 1"` | run SQL without a prompt (what an agent uses); `FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2` runs one numbered example query |
-| `make up` | start the local cluster and the application in one go (module 05; it runs `make cluster images secrets app`) |
-| `make traffic-start` | start the live generators and the browser shoppers together (`SIM_USERS` in `.env` sets how many) |
-| `make start` | all of the above: `make up`, then `make traffic-start` |
-| `make backfill`, `make generators-start`, `make sim-start` | fill ClickHouse; start the live generators; start the browser shoppers, each on its own |
-| `make generators-stop`, `make sim-stop`, `make traffic-stop` | stop the generators, the shoppers, or both |
-| `make break-card-gateway`, `make fix-card-gateway` | the module 08 exercise |
-| `make status`, `make logs S=<service>` | the pods and the freshness of every table; follow a service's logs |
-| `make check-NN` | check the end of module NN |
-| `make apply-env` | after changing `.env`: update the cluster |
-| `make nuke-data` | put orders and inventory back to the seed (events and telemetry are kept) |
-| `make stop` | stop the local cluster and keep it: `make up` brings it back as it was, in about two minutes |
-| `make down` | delete the local cluster (your Docker images stay) |
+| | Command | What it does |
+|---|---|---|
+| 1 | `make prefetch` | download and build everything, once, before the day (module 00) |
+| 2 | `make doctor` | check Docker, `.env` (shown masked) and both Cloud services |
+| 3 | `make setup` | the first time: build everything and start the demo (about ten minutes; it needs the API key) |
+| | `make start` | another day: bring the demo back, after `make stop`, `make down` or a reboot |
+| 4 | `make down` | when you are done: remove the local cluster (your Docker images stay) |
+
+The demo starts at half the load the workshop was built at (the values in `.env.example`), so that any laptop runs it. How to turn it up after the workshop, and every other command (each module's own steps, `make stop`, the resets and the parameters), is in **[COMMANDS.md](COMMANDS.md)**.
 
 ## One configuration file
 

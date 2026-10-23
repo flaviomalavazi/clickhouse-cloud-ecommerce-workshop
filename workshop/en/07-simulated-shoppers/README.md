@@ -2,7 +2,7 @@
 
 **Goal:** let headless-browser "shoppers" use the storefront for real, placing orders that change Postgres and flow into ClickHouse, then join the orders to the clickstream.
 
-**Time:** about 30 minutes, 10 of them waiting for the shoppers. `make sim-start` takes 16 s.
+**Time:** about 30 minutes. The check needs about 20 minutes of shoppers, so start them first and go through the steps while they shop. `make sim-start` takes 16 s.
 
 **You'll learn:**
 - how a transactional write (an order and its stock change) reaches an analytical database, and how to measure the lag;
@@ -17,14 +17,14 @@
 
 ### 1. Start the shoppers
 
-If you ran `make setup` they are already running (four browsers): go to step 2. (`make traffic-start` starts them together with module 06's generators.)
+If you ran `make setup` they are already running (two browsers): go to step 2. (`make traffic-start` starts them together with module 06's generators.)
 
 ```bash
 make sim-start
 make logs S=simulator
 ```
 
-A pod starts four Chromium browsers (about 300 MB of memory each; `SIM_USERS` in `.env` changes how many). Shoppers arrive at about **six a minute**, and each one behaves like a person on the real storefront: opens a landing page, browses categories, searches, opens products, sometimes adds to the cart, and checks out with card, Pix or Boleto. They browse in English, Portuguese or Spanish and search in that language. About one session in six ends in an order. Every click goes through the real page, so the real Snowplow tracker emits the events, the real API writes the order, and the real OpenTelemetry instrumentation records the traces.
+A pod starts two Chromium browsers (about 300 MB of memory each; `SIM_USERS` in `.env` sets how many). Shoppers arrive at about **three a minute**, and each one behaves like a person on the real storefront: opens a landing page, browses categories, searches, opens products, sometimes adds to the cart, and checks out with card, Pix or Boleto. They browse in English, Portuguese or Spanish and search in that language. About one session in six ends in an order. Every click goes through the real page, so the real Snowplow tracker emits the events, the real API writes the order, and the real OpenTelemetry instrumentation records the traces.
 
 The log prints a line every 30 seconds:
 
@@ -91,19 +91,19 @@ This is the point of the workshop in one query: a row that was written by a tran
 
 ### 6. Revenue by payment method
 
-Query 5 sums confirmed orders by `credit_card`, `pix` and `boleto`. After ten minutes you should see all three.
+Query 5 sums confirmed orders by `credit_card`, `pix` and `boleto`. After about twenty minutes you should see all three.
 
 **Leave the shoppers running**: module 08 needs the traffic. When you are done with the whole workshop: `make sim-stop` (or `make traffic-stop` to stop the generators too).
 
 ## Checkpoint
 
-After about ten minutes of shoppers:
+After about twenty minutes of shoppers:
 
 ```bash
 make check-07
 ```
 
-There are confirmed orders with all three payment methods since the seed, and the orders join to their checkout events. (When we ran it for ten minutes: 12 orders, card 5, Pix 5, Boleto 2, 12 distinct customers, all 12 joined.)
+There are confirmed orders with all three payment methods since the seed, and the orders join to their checkout events. (When we ran it for ten minutes at the full load, twice this one: 12 orders, card 5, Pix 5, Boleto 2, 12 distinct customers, all 12 joined.)
 
 ## Troubleshooting
 
@@ -114,11 +114,11 @@ There are confirmed orders with all three payment methods since the seed, and th
 | `failed` keeps rising | Orders are being refused. `make logs S=frontend`; if you ran `make break-card-gateway` in module 08, run `make fix-card-gateway`. |
 | No orders after several minutes | `make logs S=simulator` for errors; `make doctor` for the databases. |
 | The join returns nothing | The ClickPipe has not caught up yet, or the bridge is behind: `make status`. |
-| `check-07` wants an order of every method | Keep the shoppers running a little longer: about one in six sessions orders, and card is half of the orders. With two browsers (Docker under 8 GB), give it about 20 minutes. |
+| `check-07` wants an order of every method | Keep the shoppers running a little longer: about one in six sessions orders, and card is half of the orders. At the load in `.env.example` it takes about 20 minutes. |
 
 ## Going further
 
-- `make sim-start USERS=8` doubles the browsers (and the memory) for one run; `SIM_USERS=8` in `.env` keeps it. The arrival rate and how short their pauses are come from `.env`: `SIM_ARRIVALS_PER_MINUTE` and `SIM_DWELL_SCALE`.
+- `make sim-start USERS=4` doubles the browsers (and the memory) for one run; `SIM_USERS=4` in `.env` keeps it. [COMMANDS.md](../../../COMMANDS.md) says how far a laptop can take the load. The arrival rate and how short their pauses are come from `.env`: `SIM_ARRIVALS_PER_MINUTE` and `SIM_DWELL_SCALE`.
 - Run module 06's funnel query again for the last hour and compare the conversion with what the generators produce.
 - `data-generators/README.md` describes how the shoppers decide what to do.
 

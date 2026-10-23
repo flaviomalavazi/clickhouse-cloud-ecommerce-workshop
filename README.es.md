@@ -62,7 +62,7 @@ El panorama completo (los cuatro caminos de los datos, el proceso de pago, qué 
 
 También puedes combinarlas: `make setup` se puede ejecutar con seguridad en cualquier momento, omite lo que ya está hecho, y cada pieza tiene su propio comando (`make clickpipes`, `make ch-search`, `make ch-mvs`, `make clickstack-setup`, ...).
 
-Después de `make setup` todo ya está en marcha, así que cada módulo se convierte en un recorrido: su comprobación pasa desde el inicio y los pasos que crean cosas no cambian nada. Ten en cuenta que `make setup` deja los generadores y los compradores en ejecución: escriben unos 200 eventos y 20 transacciones con tarjeta por segundo en tu servicio de ClickHouse hasta que ejecutes `make traffic-stop`.
+Después de `make setup` todo ya está en marcha, así que cada módulo se convierte en un recorrido: su comprobación pasa desde el inicio y los pasos que crean cosas no cambian nada. Ten en cuenta que `make setup` deja los generadores y los compradores en ejecución: escriben unos 100 eventos y 10 transacciones con tarjeta por segundo (la carga de `.env.example`) en tu servicio de ClickHouse hasta que ejecutes `make traffic-stop`.
 
 ## Modo humano y modo agente
 
@@ -117,29 +117,17 @@ Probado en macOS (Apple silicon) con OrbStack.
 
 ## Comandos
 
-Ejecuta `make help` para ver la lista completa. Los que usarás:
+Cuatro pasos te llevan de una laptop limpia a la demo en marcha, y de vuelta:
 
-| | |
-|---|---|
-| `make prefetch` | descargar y construir todo (módulo 00) |
-| `make doctor` | comprobar Docker, `.env` (se muestra enmascarado) y ambas bases de datos |
-| `make setup` | **todo de una vez** (necesita la clave de API): ClickPipe, búsqueda, rollups, clúster, fuentes de ClickStack, historial y carga |
-| `make ch-bootstrap`, `make pg-setup`, `make ch-search`, `make ch-mvs` | crear las bases de datos y las tablas, configurar Postgres (`pg-migrate` y luego `pg-seed`), construir la búsqueda, crear los rollups |
-| `make clickpipes`, `make clickpipes-status`, `make clickstack-setup`, `make notebook` | el ClickPipe y las fuentes de ClickStack a través de la API de Cloud; el notebook que muestra la petición del ClickPipe |
-| `make psql`, `make ch-client` | una consola de SQL en Postgres, en ClickHouse |
-| `make ch-query Q="SELECT 1"`, `make pg-query Q="SELECT 1"` | ejecutar SQL sin consola interactiva (lo que usa un agente); `FILE=sql/clickhouse/examples/06_real_time_analytics.sql N=2` ejecuta una consulta de ejemplo numerada |
-| `make up` | iniciar el clúster local y la aplicación de una sola vez (módulo 05; ejecuta `make cluster images secrets app`) |
-| `make traffic-start` | iniciar juntos los generadores en vivo y los compradores del navegador (`SIM_USERS` en `.env` define cuántos) |
-| `make start` | todo lo anterior: `make up` y luego `make traffic-start` |
-| `make backfill`, `make generators-start`, `make sim-start` | llenar ClickHouse; iniciar los generadores en vivo; iniciar los compradores del navegador, cada uno por separado |
-| `make generators-stop`, `make sim-stop`, `make traffic-stop` | detener los generadores, los compradores o ambos |
-| `make break-card-gateway`, `make fix-card-gateway` | el ejercicio del módulo 08 |
-| `make status`, `make logs S=<service>` | los pods y la frescura de cada tabla; seguir los logs de un servicio |
-| `make check-NN` | comprobar el final del módulo NN |
-| `make apply-env` | después de cambiar `.env`: actualizar el clúster |
-| `make nuke-data` | devolver los pedidos y el inventario a los datos iniciales (los eventos y la telemetría se conservan) |
-| `make stop` | detener el clúster local y conservarlo: `make up` lo trae de vuelta tal como estaba, en unos dos minutos |
-| `make down` | eliminar el clúster local (tus imágenes de Docker se conservan) |
+| | Comando | Qué hace |
+|---|---|---|
+| 1 | `make prefetch` | descargar y construir todo, una sola vez, antes del día (módulo 00) |
+| 2 | `make doctor` | comprobar Docker, `.env` (se muestra enmascarado) y los dos servicios de Cloud |
+| 3 | `make setup` | la primera vez: construir todo e iniciar la demo (unos diez minutos; necesita la clave de API) |
+| | `make start` | otro día: traer la demo de vuelta, después de `make stop`, `make down` o de reiniciar la computadora |
+| 4 | `make down` | cuando termines: eliminar el clúster local (tus imágenes de Docker se conservan) |
+
+La demo empieza con la mitad de la carga para la que se construyó el taller (los valores de `.env.example`), para que cualquier laptop la ejecute. Cómo subirla después del taller, y todos los demás comandos (los pasos de cada módulo, `make stop`, los reinicios y los parámetros), están en **[COMMANDS.es.md](COMMANDS.es.md)**.
 
 ## Un solo archivo de configuración
 
