@@ -222,7 +222,7 @@ def seed_orders(conn, active: list[int]) -> None:
         for oid in range(1, N_ORDERS + 1):
             created = now - timedelta(seconds=rng.uniform(0, ORDER_HISTORY_DAYS * 86_400))
             # An order that old has long since been resolved: only a very recent
-            # one may still be pending (D15), so the table does not start with
+            # one may still be pending, so the table does not start with
             # hundreds of orders "stuck" since last year.
             if now - created < timedelta(hours=1):
                 status = "pending"

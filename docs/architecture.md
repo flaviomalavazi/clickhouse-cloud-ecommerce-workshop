@@ -1,6 +1,6 @@
 # ClickShop architecture
 
-The deeper dive behind the [README](../README.md)'s diagram: what runs where, how data gets from a click or an order into ClickHouse, how long that takes, and how the repository turns all of it into a few `make` commands. It describes what is built. [`decisions.md`](decisions.md) says why it is built that way, and [`data-dictionary.md`](data-dictionary.md) says what every table holds.
+The deeper dive behind the [README](../README.md)'s diagram: what runs where, how data gets from a click or an order into ClickHouse, how long that takes, and how the repository turns all of it into a few `make` commands. It describes what is built. [`data-dictionary.md`](data-dictionary.md) says what every table holds.
 
 ## 1. The shape
 

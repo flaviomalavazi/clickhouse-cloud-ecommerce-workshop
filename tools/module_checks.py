@@ -17,7 +17,7 @@ from collections.abc import Callable
 from connections import ch_client, pg_connect
 from doctor_checks import clickhouse_ok
 
-# What the seed makes (tools/seed_postgres.py). `active` follows the catalogue (D43).
+# What the seed makes (tools/seed_postgres.py). `active` follows the catalogue.
 SEED_PRODUCTS = 978
 SEED_ACTIVE = 691
 SEED_CUSTOMERS = 500

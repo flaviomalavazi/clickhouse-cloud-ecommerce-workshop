@@ -161,7 +161,7 @@ It prints `[n/13]` lines. Use each wait:
 Settled by the owner: Managed Postgres, Postgres CDC ClickPipes and ClickHouse Agents are available in the participants' organizations; the cost is covered by the $300 trial credits; prebuilt images on GHCR will **not** be published (the images are always built on the participant's machine); `CARD_GATEWAY_DOWN=true` in `.env` is intentional.
 
 1. The tier of the services the workshop was tested with (the Postgres size in particular).
-2. ClickHouse Agents: the permission to create agents, where an admin grants it, and the console walk-through of [module 09](en/09-clickhouse-agents/README.md) (its list of questions is in `docs/decisions.md`, section "Phase 9"), including where the Langfuse credentials are entered (the optional final step: see [the Langfuse page](en/09-clickhouse-agents/langfuse.md)).
+2. ClickHouse Agents: the permission to create agents, where an admin grants it, and the console walk-through of [module 09](en/09-clickhouse-agents/README.md), including where the Langfuse credentials are entered (the optional final step: see [the Langfuse page](en/09-clickhouse-agents/langfuse.md)).
 3. Co-authoring and checking the analyst's candidate questions (ten so far) in `agents/clickshop-analyst/questions.md`.
 4. Shared organization or one each, and how the services' credentials reach the participants (pre-provisioning for the one-hour format).
 5. The console steps of modules 01 and 03, walked through once on a clean organization (the labels were confirmed in the Phase 7 review; the flow has not been timed).

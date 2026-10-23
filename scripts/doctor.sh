@@ -158,7 +158,7 @@ if [ "$(get CARD_GATEWAY_DOWN | tr '[:upper:]' '[:lower:]')" = "true" ]; then
   ok "CARD_GATEWAY_DOWN=true: card payments fail on purpose (the ClickStack exercise); make fix-card-gateway repairs them on a running cluster"
 fi
 
-# The browsers make sim-start and make setup start (D77). Not a secret, so it is shown.
+# The browsers make sim-start and make setup start. Not a secret, so it is shown.
 users=$(get SIM_USERS)
 case $users in
   "") ;;

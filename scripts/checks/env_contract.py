@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-The configuration contract (decision D21): every environment variable the code reads is
+The configuration contract: every environment variable the code reads is
 defined in `.env.example`, set by the chart or an image (so it is not configuration anyone
 edits), or named in KNOWN below with the reason it needs no entry.
 
@@ -110,7 +110,7 @@ PY_READ = [
 ]
 TS_READ = [r'process\.env\.([A-Z][A-Z0-9_]*)', r'process\.env\[\s*["\']([A-Z][A-Z0-9_]*)["\']']
 SH_READ = [r'\$\{([A-Z][A-Z0-9_]*)(?::[-?+=]|\})', r'\$([A-Z][A-Z0-9_]*)\b']
-# The Makefile and scripts read a setting of their own from .env through this helper (D77).
+# The Makefile and scripts read a setting of their own from .env through this helper.
 ENV_VALUE_READ = r'env-value\.sh\s+([A-Z][A-Z0-9_]*)'
 SKIP_PARTS = ("node_modules", "/test_", "/tests/", "base_contents", ".next", "package-lock")
 

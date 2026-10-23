@@ -153,7 +153,6 @@ tools/                    the database tasks (seed, SQL runner, checks)
 scripts/                  doctor, and the module checks in scripts/checks/
 docs/architecture.md      the deeper dive: data paths, the checkout, observability, the local platform
 docs/data-dictionary.md   every table and column, the join keys and the rules for querying them
-docs/decisions.md         why things are the way they are
 ```
 
 ## Troubleshooting
@@ -164,5 +163,3 @@ Each module has its own table. The usual suspects:
 - Pods are `Pending` or evicted, or builds fail with "no space left": Docker's disk is full. Keep 10 GB free (`docker system df`).
 - Something answers very slowly or times out: the Cloud services are reached over the internet; `make doctor` shows whether they answer.
 - You changed `.env` and nothing happened: `make apply-env`.
-
-`docs/decisions.md` records every decision and what was measured while building the workshop.
