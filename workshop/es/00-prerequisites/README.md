@@ -35,7 +35,7 @@ Probado en macOS (Apple silicon) con OrbStack. Docker Desktop y Colima funcionan
    make prefetch
    ```
 
-   Obtiene las imágenes de las herramientas y la imagen del nodo de Kubernetes, construye la imagen de herramientas (Python y `psql`, para las tareas de base de datos) y las seis imágenes del taller (tienda, servicios de demostración, puente de Snowplow, gateway de OpenTelemetry, generadores, simulador), obtiene Snowplow Micro y el collector de OpenTelemetry, descarga el chart de Helm del collector y obtiene la imagen del cliente de ClickHouse. Necesita internet **una sola vez**. Ejecútalo de nuevo cuando quieras; lo que ya está se omite.
+   Obtiene las imágenes de las herramientas y la imagen del nodo de Kubernetes, construye la imagen de herramientas (Python y `psql`, para las tareas de base de datos) y las seis imágenes del taller (tienda, servicios de demostración, puente de Snowplow, gateway de OpenTelemetry, generadores, simulador), obtiene Snowplow Micro y el collector de OpenTelemetry y descarga el chart de Helm del collector. Necesita internet **una sola vez**. Ejecútalo de nuevo cuando quieras; lo que ya está se omite.
 
 5. **Comprueba:**
 
