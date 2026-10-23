@@ -160,7 +160,7 @@ Every browser event arrives through Snowplow Micro and the bridge; generated ses
 | `currency` | String | `BRL` for most; also `USD`, `EUR`, `ARS`, `CLP`, `COP`, `MXN`, `UYU`, `PYG`, `GBP`, `CAD`, `JPY`, `CHF`. **The shop's own rows (`merchant_name = 'ClickShop'`) are labelled `BRL` but carry the order total, which is in USD** (`bill_value` equals the purchase's `se_value` for about 96 % of them): do not convert it. |
 | `type` | String | `expense`, or `chargeback` (a refund or dispute; about 29 % of the background traffic). |
 
-The volume depends on whether the live generators have been running: the history is a trickle (the card payments of the generated purchases), the live producer writes about 20 transactions a second.
+The volume depends on whether the live generators have been running: the history is a trickle (the card payments of the generated purchases), the live producer writes about 10 transactions a second at the load in `.env.example` (`CC_TARGET_TPS`).
 
 ### `products_search` (978 rows; refreshed every 5 minutes)
 

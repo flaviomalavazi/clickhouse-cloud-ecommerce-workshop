@@ -27,9 +27,9 @@ make sim-start
 deploy/bin/kubectl -n clickshop logs deploy/simulator --tail=10
 ```
 
-It starts the browsers `SIM_USERS` in `.env` asks for (4 when it is not set; `make doctor` shows it). With 2, everything below that needs ten minutes of shoppers needs about twenty.
+It starts the browsers `SIM_USERS` in `.env` asks for: 2 in `.env.example`, 4 when it is not set (`make doctor` shows it). The times below are for 2; with 4 they halve.
 
-A pod starts four Chromium browsers (about 300 MB of memory each). Shoppers arrive at about **six a minute**, and each behaves like a person on the real storefront: opens a landing page, browses categories, searches, opens products, sometimes adds to the cart, and checks out with card, Pix or Boleto, in English, Portuguese or Spanish. About one session in six ends in an order. Every click goes through the real page, so the real Snowplow tracker emits the events, the real API writes the order and the real OpenTelemetry instrumentation records the traces. Explain the log line that prints every 30 seconds: `sessions` (shoppers arrived), `orders`, `failed` (orders refused: the card gateway failing in module 08) and `soldout` (found a product gone).
+A pod starts two Chromium browsers (about 300 MB of memory each). Shoppers arrive at about **three a minute**, and each behaves like a person on the real storefront: opens a landing page, browses categories, searches, opens products, sometimes adds to the cart, and checks out with card, Pix or Boleto, in English, Portuguese or Spanish. About one session in six ends in an order. Every click goes through the real page, so the real Snowplow tracker emits the events, the real API writes the order and the real OpenTelemetry instrumentation records the traces. Explain the log line that prints every 30 seconds: `sessions` (shoppers arrived), `orders`, `failed` (orders refused: the card gateway failing in module 08) and `soldout` (found a product gone).
 
 The first time, loading the browser image takes a little longer (1.5 GB). If the pod stays `Pending`, memory is short: they lower `SIM_USERS` in `.env`.
 
@@ -75,7 +75,7 @@ Say: "This is the point of the workshop in one query: a row written by a transac
 make ch-query FILE=sql/clickhouse/examples/07_simulated_shoppers.sql N=5
 ```
 
-After about ten minutes of shoppers all three of `credit_card`, `pix` and `boleto` appear. Leave the shoppers **running**: module 08 needs the traffic. (They stop with `make sim-stop`, or `make traffic-stop` for the generators too.)
+After about twenty minutes of shoppers all three of `credit_card`, `pix` and `boleto` appear. Leave the shoppers **running**: module 08 needs the traffic. (They stop with `make sim-stop`, or `make traffic-stop` for the generators too.)
 
 ### 7. `check` [AGENT RUNS] The checkpoint
 
@@ -83,7 +83,7 @@ After about ten minutes of shoppers all three of `credit_card`, `pix` and `bolet
 make check-07
 ```
 
-Needs about ten minutes of shoppers: if it says an order of a payment method is missing, wait a little and run it again.
+Needs about twenty minutes of shoppers: if it says an order of a payment method is missing, wait a little and run it again.
 
 ## Talking points
 
@@ -94,7 +94,7 @@ Needs about ten minutes of shoppers: if it says an order of a payment method is 
 
 ## Checkpoint
 
-`make check-07` shows confirmed orders with all three payment methods since the seed, and the orders joining to their checkout events. (A ten-minute run of ours: 12 orders, card 5, Pix 5, Boleto 2, 12 customers, all 12 joined.) It ends `All checks passed`.
+`make check-07` shows confirmed orders with all three payment methods since the seed, and the orders joining to their checkout events. (A ten-minute run of ours at the full load: 12 orders, card 5, Pix 5, Boleto 2, 12 customers, all 12 joined.) It ends `All checks passed`.
 
 ## Failure playbook
 
@@ -104,11 +104,11 @@ Needs about ten minutes of shoppers: if it says an order of a payment method is 
 | No orders after several minutes | `deploy/bin/kubectl -n clickshop logs deploy/simulator --tail=30`; `make doctor` | Read the simulator's errors; the databases are the usual cause. |
 | `failed` keeps rising | `deploy/bin/kubectl -n clickshop logs deploy/frontend --tail=40` | Orders are refused. If `make break-card-gateway` was run (module 08), `make fix-card-gateway`. |
 | The join returns nothing | `make status` | The ClickPipe has not caught up, or the bridge is behind: wait a sync interval. |
-| `check-07` wants an order of every method | `make ch-query FILE=sql/clickhouse/examples/07_simulated_shoppers.sql N=5` | Keep the shoppers running longer: about one in six sessions orders, and card is half of the orders (about twenty minutes with `SIM_USERS=2`). |
+| `check-07` wants an order of every method | `make ch-query FILE=sql/clickhouse/examples/07_simulated_shoppers.sql N=5` | Keep the shoppers running longer: about one in six sessions orders, and card is half of the orders (about twenty minutes at the load in `.env.example`). |
 
 ## Fast track
 
-`make setup` started the shoppers, so by now there are orders. Tour steps 2, 3, 5 and 6 (about 7 minutes), and run `make check-07` when they have been running for ten minutes.
+`make setup` started the shoppers, so by now there are orders. Tour steps 2, 3, 5 and 6 (about 7 minutes), and run `make check-07` when they have been running for twenty minutes.
 
 ## Exit criteria
 

@@ -13,7 +13,7 @@ from test_agent_mode import CREATED_BY_THE_PARTICIPANT, PATH_ROOTS, ROOT, code_s
 pytestmark = pytest.mark.skipif(not (ROOT / "workshop").exists(), reason="the repo is not mounted")
 
 MODULES = sorted((ROOT / "workshop" / "en").glob("[0-9][0-9]-*/README.md"))
-GUIDE = [ROOT / "README.md", ROOT / "workshop" / "FACILITATOR.md", ROOT / "docs" / "architecture.md", ROOT / "workshop" / "en" / "09-clickhouse-agents" / "langfuse.md", *MODULES]
+GUIDE = [ROOT / "README.md", ROOT / "COMMANDS.md", ROOT / "workshop" / "FACILITATOR.md", ROOT / "docs" / "architecture.md", ROOT / "workshop" / "en" / "09-clickhouse-agents" / "langfuse.md", *MODULES]
 
 
 def text_of(path):

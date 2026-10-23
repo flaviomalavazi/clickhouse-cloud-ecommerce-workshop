@@ -98,7 +98,7 @@ Say: "From here one command builds what modules 01 to 08 build by hand, in the o
 make setup
 ```
 
-If module 00 noted under 8 GB, check that `make doctor` shows `SIM_USERS=2` first (the lighter load from module 00 is in `.env`). Run it in the background with the log in `.workshop/logs/setup.log` and read the step lines as they appear (`[n/13] ...`). While it runs, use the talking points: this is the time to explain the architecture. When it ends it prints a timing per step and the storefront URL. If the ClickStack step says it could not finish, that is expected on a service where ClickStack has never been opened: module 08 handles it.
+Check that `make doctor` shows `SIM_USERS` (the load from `.env.example`); if it does not, their `.env` predates it and runs the full load, so on a machine under 8 GB ask them to copy the four load lines from `.env.example` first. Run it in the background with the log in `.workshop/logs/setup.log` and read the step lines as they appear (`[n/13] ...`). While it runs, use the talking points: this is the time to explain the architecture. When it ends it prints a timing per step and the storefront URL. If the ClickStack step says it could not finish, that is expected on a service where ClickStack has never been opened: module 08 handles it.
 
 Record `"setup_done": true` in the progress file's `notes`. Before you run it, ask them to open **ClickStack** once from their ClickHouse service in the console (a minute: that creates ClickStack's connection to the service). If they have not, `make setup` still builds everything else and ends by saying the ClickStack step is `NOT DONE`: that is the reason, and module 08 fixes it.
 

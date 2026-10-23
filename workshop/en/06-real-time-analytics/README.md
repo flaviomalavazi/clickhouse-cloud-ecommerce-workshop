@@ -63,9 +63,9 @@ make generators-start
 make logs S=producer-web
 ```
 
-Two pods start: `producer-web` generates browsing sessions at about **200 events a second** on average over a day, and `producer-cc` generates about **20 card transactions a second**. The rate follows an hour-of-day curve (the first lines of the log show the average and the peak), and the sessions follow the same funnel as the backfill, and every purchase among them can carry a card transaction. Look at the `[flush]` lines now: a batch every 5 or 6 seconds, a few thousand rows each.
+Two pods start: `producer-web` generates browsing sessions at about **100 events a second** on average over a day, and `producer-cc` generates about **10 card transactions a second** (the load in `.env.example`, half the full one). The rate follows an hour-of-day curve (the first lines of the log show the average and the peak), and the sessions follow the same funnel as the backfill, and every purchase among them can carry a card transaction. Look at the `[flush]` lines now: a batch every 5 or 6 seconds, of hundreds of rows or more, depending on the hour.
 
-The rates are in `.env` (optional block): `PRODUCE_TARGET_EPS` and `CC_TARGET_TPS`. After changing them, run `make apply-env`.
+The rates are in `.env`: `PRODUCE_TARGET_EPS` and `CC_TARGET_TPS`. After changing them, run `make apply-env` ([COMMANDS.md](../../../COMMANDS.md) says how far a laptop can take them).
 
 ### 4. Open the dashboard
 

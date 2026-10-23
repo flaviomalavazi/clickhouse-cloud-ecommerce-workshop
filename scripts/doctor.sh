@@ -60,13 +60,13 @@ mem_bytes=$(docker info --format '{{.MemTotal}}')
 cpus=$(docker info --format '{{.NCPU}}')
 mem_gb=$(awk -v b="$mem_bytes" 'BEGIN { printf "%.1f", b / 1073741824 }')
 # Docker Desktop reports a little under its setting (an 8 GB setting shows ~7.7 GiB, a 4 GB one ~3.8).
-# Everything running at the default load measured 3.4 GiB, so 4 GB runs it and 8 GB is the headroom:
-# under 8, warn and say how to halve the load instead of stopping make setup.
-if [ "$mem_bytes" -ge 7500000000 ]; then ok "memory ${mem_gb} GiB (needs 4 GB, 8 GB is comfortable)"
+# Everything running at the full load measured 3.4 GiB, so 4 GB runs it and 8 GB is the headroom:
+# under 8, warn and say to keep .env.example's half load instead of stopping make setup.
+if [ "$mem_bytes" -ge 7500000000 ]; then ok "memory ${mem_gb} GiB (needs 4 GB; with 8 there is room to raise the load after the workshop: COMMANDS.md)"
 elif [ "$mem_bytes" -ge 3750000000 ]; then
-  warn "memory ${mem_gb} GiB: enough, but under the 8 GB the workshop is sized for, so keep the load light:"
-  printf '      in .env: SIM_USERS=2, SIM_ARRIVALS_PER_MINUTE=3, PRODUCE_TARGET_EPS=100, CC_TARGET_TPS=10\n'
-  printf '      (half the default load: two browsers of about 300 MB instead of four; if the cluster is up: make apply-env, then make sim-start)\n'
+  warn "memory ${mem_gb} GiB: enough, but under 8 GB, so keep the load light (do not raise it on this machine):"
+  printf '      in .env, as .env.example has them: SIM_USERS=2, SIM_ARRIVALS_PER_MINUTE=3, PRODUCE_TARGET_EPS=100, CC_TARGET_TPS=10\n'
+  printf '      (an older .env without them runs the full load; if the cluster is up after you add them: make apply-env, then make sim-start)\n'
   printf '      if the machine still swaps: make sim-stop (the generators keep the clickstream flowing; orders come only from the shoppers)\n'
 else bad "memory ${mem_gb} GiB: the workshop needs at least 4 GB, 8 GB is comfortable (Docker Desktop: Settings > Resources)"; fi
 if [ "$cpus" -ge 4 ]; then ok "${cpus} CPUs (needs 4)"; else bad "${cpus} CPUs: the cluster needs 4"; fi
