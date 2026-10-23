@@ -128,6 +128,7 @@ Every pod is ready, the storefront answers on port 3000, the catalogue loads fro
 | Your order is not in ClickHouse after two minutes | The ClickPipe is behind or stopped: look at its page in the console. |
 | You changed `.env` | `make apply-env` updates the Secret and restarts the pods that read it. |
 | Pods are evicted, or Docker is slow | Docker's disk is nearly full: `docker system df`, and keep 10 GB free. |
+| A command fails with `UPGRADE FAILED: context deadline exceeded`, or pods stay `Pending` or `Terminating` | Usually Docker restarted or updated while the cluster was running and left a node `NotReady`: run `make up` (it restarts the stuck nodes), then the command again. |
 
 ## Going further
 

@@ -100,7 +100,7 @@ Needs about twenty minutes of shoppers: if it says an order of a payment method 
 
 | Symptom | Diagnose | Fix |
 |---|---|---|
-| The simulator pod is `Pending` | `deploy/bin/kubectl -n clickshop describe pods -l deployment=simulator` (the Events at the end) | Not enough memory: they set `SIM_USERS=2` in `.env` and you run `make sim-start`, or they give Docker more. |
+| The simulator pod is `Pending`, or `make sim-start` fails with `context deadline exceeded` | `deploy/bin/kubectl -n clickshop describe pods -l deployment=simulator` (the Events at the end); `deploy/bin/kubectl get nodes` | A node `NotReady`, or `untolerated taint {node.kubernetes.io/unreachable}` in the Events: Docker restarted under the cluster; `make up` restarts the stuck nodes, then `make sim-start`. `Insufficient memory`: they set `SIM_USERS=2` in `.env` and you run `make sim-start`, or they give Docker more. |
 | No orders after several minutes | `deploy/bin/kubectl -n clickshop logs deploy/simulator --tail=30`; `make doctor` | Read the simulator's errors; the databases are the usual cause. |
 | `failed` keeps rising | `deploy/bin/kubectl -n clickshop logs deploy/frontend --tail=40` | Orders are refused. If `make break-card-gateway` was run (module 08), `make fix-card-gateway`. |
 | The join returns nothing | `make status` | The ClickPipe has not caught up, or the bridge is behind: wait a sync interval. |

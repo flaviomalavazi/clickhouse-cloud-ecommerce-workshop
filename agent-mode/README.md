@@ -88,7 +88,7 @@ A step can hold a command of yours inside a participant step (a check, a lookup)
 4. Ask the participant for what only they can see (the ClickPipe's page, the console, the browser).
 5. Try at most twice. Never work around a failure by editing code, SQL or `.env` yourself. If it is still stuck, say so honestly, note it in the progress file, and offer to skip ahead.
 
-The usual causes, in order: the Docker disk is full (`docker system df`), `.env` is wrong (`make doctor`), the Postgres instance's IP access blocks the participant's address, the ClickPipe has not caught up (wait one sync interval, 60 seconds).
+The usual causes, in order: the Docker disk is full (`docker system df`), `.env` is wrong (`make doctor`), the Postgres instance's IP access blocks the participant's address, the ClickPipe has not caught up (wait one sync interval, 60 seconds), a cluster node left `NotReady` after Docker restarted or updated (`deploy/bin/kubectl get nodes`; it shows up as a Helm `context deadline exceeded`, and `make up` restarts the node).
 
 ## For the people who maintain this
 

@@ -110,7 +110,7 @@ There are confirmed orders with all three payment methods since the seed, and th
 | Symptom | Fix |
 |---|---|
 | `make sim-start` takes a while the first time | It loads the 1.5 GB browser image into the node (11 s on our machine). |
-| The simulator pod is `Pending` | Not enough memory: lower `SIM_USERS` in `.env`, or give Docker more. |
+| The simulator pod is `Pending`, or `make sim-start` fails with `context deadline exceeded` | If Docker restarted or updated while the cluster was running, run `make up` (it restarts the stuck nodes), then `make sim-start`. Otherwise not enough memory: lower `SIM_USERS` in `.env`, or give Docker more. |
 | `failed` keeps rising | Orders are being refused. `make logs S=frontend`; if you ran `make break-card-gateway` in module 08, run `make fix-card-gateway`. |
 | No orders after several minutes | `make logs S=simulator` for errors; `make doctor` for the databases. |
 | The join returns nothing | The ClickPipe has not caught up yet, or the bridge is behind: `make status`. |

@@ -110,7 +110,7 @@ Hay pedidos confirmados con los tres métodos de pago desde la carga inicial, y 
 | Síntoma | Solución |
 |---|---|
 | `make sim-start` tarda un poco la primera vez | Carga la imagen del navegador de 1.5 GB en el nodo (11 s en nuestra máquina). |
-| El pod del simulador está en `Pending` | No hay suficiente memoria: baja `SIM_USERS` en `.env` o dale más a Docker. |
+| El pod del simulador está en `Pending`, o `make sim-start` falla con `context deadline exceeded` | Si Docker se reinició o se actualizó con el clúster en marcha, ejecuta `make up` (reinicia los nodos trabados) y luego `make sim-start`. Si no, no hay suficiente memoria: baja `SIM_USERS` en `.env` o dale más a Docker. |
 | `failed` sigue subiendo | Se están rechazando pedidos. `make logs S=frontend`; si ejecutaste `make break-card-gateway` en el módulo 08, ejecuta `make fix-card-gateway`. |
 | No hay pedidos después de varios minutos | `make logs S=simulator` para ver errores; `make doctor` para las bases de datos. |
 | El join no devuelve nada | El ClickPipe aún no se ha puesto al día, o el bridge va atrasado: `make status`. |
