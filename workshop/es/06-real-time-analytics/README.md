@@ -63,9 +63,9 @@ make generators-start
 make logs S=producer-web
 ```
 
-Se inician dos pods: `producer-web` genera sesiones de navegación a unos **200 eventos por segundo** en promedio a lo largo de un día, y `producer-cc` genera unas **20 transacciones con tarjeta por segundo**. El ritmo sigue una curva por hora del día (las primeras líneas del log muestran el promedio y el pico), y las sesiones siguen el mismo embudo que el backfill, y cada compra entre ellas puede llevar una transacción con tarjeta. Mira ahora las líneas `[flush]`: un lote cada 5 o 6 segundos, de unos pocos miles de filas cada uno.
+Se inician dos pods: `producer-web` genera sesiones de navegación a unos **100 eventos por segundo** en promedio a lo largo de un día, y `producer-cc` genera unas **10 transacciones con tarjeta por segundo** (la carga de `.env.example`, la mitad de la completa). El ritmo sigue una curva por hora del día (las primeras líneas del log muestran el promedio y el pico), y las sesiones siguen el mismo embudo que el backfill, y cada compra entre ellas puede llevar una transacción con tarjeta. Mira ahora las líneas `[flush]`: un lote cada 5 o 6 segundos, de cientos de filas o más, según la hora.
 
-Los ritmos están en `.env` (bloque opcional): `PRODUCE_TARGET_EPS` y `CC_TARGET_TPS`. Después de cambiarlos, ejecuta `make apply-env`.
+Los ritmos están en `.env`: `PRODUCE_TARGET_EPS` y `CC_TARGET_TPS`. Después de cambiarlos, ejecuta `make apply-env` ([COMMANDS.es.md](../../../COMMANDS.es.md) dice hasta dónde los aguanta una laptop).
 
 ### 4. Abre el dashboard
 

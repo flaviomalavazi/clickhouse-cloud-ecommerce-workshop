@@ -2,7 +2,7 @@
 
 **Objetivo:** hacer que "compradores" con navegador headless usen la tienda de verdad y hagan pedidos que modifican Postgres y fluyen hacia ClickHouse, y luego unir esos pedidos con el clickstream.
 
-**Tiempo:** unos 30 minutos, 10 de ellos esperando a los compradores. `make sim-start` tarda 16 s.
+**Tiempo:** unos 30 minutos. La comprobación necesita unos 20 minutos de compradores, así que inícialos primero y sigue los pasos mientras compran. `make sim-start` tarda 16 s.
 
 **Aprenderás:**
 - cómo una escritura transaccional (un pedido y su cambio de inventario) llega a una base de datos analítica, y cómo medir el retraso;
@@ -17,14 +17,14 @@
 
 ### 1. Inicia los compradores
 
-Si ejecutaste `make setup`, ya están en ejecución (cuatro navegadores): pasa al paso 2. (`make traffic-start` los inicia junto con los generadores del módulo 06.)
+Si ejecutaste `make setup`, ya están en ejecución (dos navegadores): pasa al paso 2. (`make traffic-start` los inicia junto con los generadores del módulo 06.)
 
 ```bash
 make sim-start
 make logs S=simulator
 ```
 
-Un pod inicia cuatro navegadores Chromium (unos 300 MB de memoria cada uno; `SIM_USERS` en `.env` cambia cuántos). Los compradores llegan a un ritmo de unos **seis por minuto**, y cada uno se comporta como una persona en la tienda real: abre una página de inicio, recorre categorías, busca, abre productos, a veces agrega al carrito y paga con tarjeta, Pix o Boleto. Navegan en inglés, portugués o español y buscan en ese idioma. Más o menos una de cada seis sesiones termina en un pedido. Cada clic pasa por la página real, así que el tracker real de Snowplow emite los eventos, la API real escribe el pedido y la instrumentación real de OpenTelemetry registra las trazas.
+Un pod inicia dos navegadores Chromium (unos 300 MB de memoria cada uno; `SIM_USERS` en `.env` define cuántos). Los compradores llegan a un ritmo de unos **tres por minuto**, y cada uno se comporta como una persona en la tienda real: abre una página de inicio, recorre categorías, busca, abre productos, a veces agrega al carrito y paga con tarjeta, Pix o Boleto. Navegan en inglés, portugués o español y buscan en ese idioma. Más o menos una de cada seis sesiones termina en un pedido. Cada clic pasa por la página real, así que el tracker real de Snowplow emite los eventos, la API real escribe el pedido y la instrumentación real de OpenTelemetry registra las trazas.
 
 El log imprime una línea cada 30 segundos:
 
@@ -91,19 +91,19 @@ Esta es la idea central del taller en una sola consulta: una fila escrita por un
 
 ### 6. Ingresos por método de pago
 
-La consulta 5 suma los pedidos confirmados por `credit_card`, `pix` y `boleto`. Después de diez minutos deberías ver los tres.
+La consulta 5 suma los pedidos confirmados por `credit_card`, `pix` y `boleto`. Después de unos veinte minutos deberías ver los tres.
 
 **Deja los compradores en ejecución**: el módulo 08 necesita el tráfico. Cuando termines todo el taller: `make sim-stop` (o `make traffic-stop` para detener también los generadores).
 
 ## Punto de control
 
-Después de unos diez minutos de compradores:
+Después de unos veinte minutos de compradores:
 
 ```bash
 make check-07
 ```
 
-Hay pedidos confirmados con los tres métodos de pago desde la carga inicial, y los pedidos se unen con sus eventos de pago. (Cuando lo ejecutamos durante diez minutos: 12 pedidos, tarjeta 5, Pix 5, Boleto 2, 12 clientes distintos, los 12 unidos.)
+Hay pedidos confirmados con los tres métodos de pago desde la carga inicial, y los pedidos se unen con sus eventos de pago. (Cuando lo ejecutamos durante diez minutos con la carga completa, el doble de esta: 12 pedidos, tarjeta 5, Pix 5, Boleto 2, 12 clientes distintos, los 12 unidos.)
 
 ## Solución de problemas
 
@@ -114,11 +114,11 @@ Hay pedidos confirmados con los tres métodos de pago desde la carga inicial, y 
 | `failed` sigue subiendo | Se están rechazando pedidos. `make logs S=frontend`; si ejecutaste `make break-card-gateway` en el módulo 08, ejecuta `make fix-card-gateway`. |
 | No hay pedidos después de varios minutos | `make logs S=simulator` para ver errores; `make doctor` para las bases de datos. |
 | El join no devuelve nada | El ClickPipe aún no se ha puesto al día, o el bridge va atrasado: `make status`. |
-| `check-07` pide un pedido de cada método | Deja los compradores en ejecución un poco más: más o menos una de cada seis sesiones hace un pedido, y la tarjeta es la mitad de los pedidos. Con dos navegadores (Docker con menos de 8 GB), dale unos 20 minutos. |
+| `check-07` pide un pedido de cada método | Deja los compradores en ejecución un poco más: más o menos una de cada seis sesiones hace un pedido, y la tarjeta es la mitad de los pedidos. Con la carga de `.env.example` tarda unos 20 minutos. |
 
 ## Para ir más lejos
 
-- `make sim-start USERS=8` duplica los navegadores (y la memoria) por una vez; `SIM_USERS=8` en `.env` lo mantiene. El ritmo de llegada y lo cortas que son sus pausas vienen de `.env`: `SIM_ARRIVALS_PER_MINUTE` y `SIM_DWELL_SCALE`.
+- `make sim-start USERS=4` duplica los navegadores (y la memoria) por una vez; `SIM_USERS=4` en `.env` lo mantiene. [COMMANDS.es.md](../../../COMMANDS.es.md) dice hasta dónde aguanta la carga una laptop. El ritmo de llegada y lo cortas que son sus pausas vienen de `.env`: `SIM_ARRIVALS_PER_MINUTE` y `SIM_DWELL_SCALE`.
 - Ejecuta de nuevo la consulta del embudo del módulo 06 para la última hora y compara la conversión con lo que producen los generadores.
 - `data-generators/README.md` describe cómo deciden los compradores qué hacer.
 

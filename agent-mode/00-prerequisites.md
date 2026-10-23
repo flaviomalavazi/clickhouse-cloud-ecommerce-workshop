@@ -71,7 +71,7 @@ make check-00
 |---|---|---|
 | `the Docker daemon is not running` | `docker version` | The participant starts Docker and waits until it says it is running. |
 | `Docker has less than 4 GB of memory` | `docker info --format '{{.MemTotal}}'` | The participant raises it in Docker's settings and restarts Docker. |
-| `under 8 GB: keep the load light` (a note, the check passes) | `docker info --format '{{.MemTotal}}'` | The workshop runs at half the load. When they fill in `.env` in module 01, ask them to add `SIM_USERS=2`, `SIM_ARRIVALS_PER_MINUTE=3`, `PRODUCE_TARGET_EPS=100` and `CC_TARGET_TPS=10` (they edit it, not you). `make doctor` then shows `SIM_USERS=2`, and every command that starts shoppers uses it: never pass `USERS=` yourself. If the machine still swaps, `make sim-stop`. |
+| `under 8 GB: keep the load light` (a note, the check passes) | `docker info --format '{{.MemTotal}}'` | It runs at the load in `.env.example` (`SIM_USERS=2`, `SIM_ARRIVALS_PER_MINUTE=3`, `PRODUCE_TARGET_EPS=100`, `CC_TARGET_TPS=10`). Tell them to keep those values when they fill in `.env` in module 01 and not to raise them on this machine; `make doctor` shows `SIM_USERS`. Never pass `USERS=` yourself. If the machine still swaps, `make sim-stop`. |
 | `port 3000 is in use` | `lsof -i :3000` (shows the process) | Something of theirs uses it (often a local `npm run dev`). They stop it. (If the clickshop cluster already exists, this is fine.) |
 | A pull or build fails halfway | The last lines of the output | `make prefetch` again. |
 | `no space left`, or fewer than 10 GB free | `docker system df` | `docker builder prune -f` frees build cache. Anything more is the participant's decision (their other images may be needed): ask before suggesting `docker image prune`. |

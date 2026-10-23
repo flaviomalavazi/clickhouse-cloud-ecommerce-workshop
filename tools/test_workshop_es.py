@@ -20,6 +20,7 @@ LANGFUSE = ROOT / "workshop" / "en" / "09-clickhouse-agents" / "langfuse.md"
 PAIRS = [(ROOT / "README.md", ROOT / "README.es.md")]
 PAIRS += [(m, ROOT / "workshop" / "es" / m.parent.name / "README.md") for m in MODULES]
 PAIRS += [(LANGFUSE, ROOT / "workshop" / "es" / LANGFUSE.parent.name / LANGFUSE.name)]
+PAIRS += [(ROOT / "COMMANDS.md", ROOT / "COMMANDS.es.md")]
 IDS = [es.relative_to(ROOT).as_posix() for _, es in PAIRS]
 FENCE = re.compile(r"^[ \t]*```[^\n]*\n.*?^[ \t]*```[ \t]*$", re.S | re.M)   # also the blocks indented inside a list item
 

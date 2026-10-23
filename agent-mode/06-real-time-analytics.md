@@ -47,7 +47,7 @@ make generators-start
 deploy/bin/kubectl -n clickshop logs deploy/producer-web --tail=15
 ```
 
-Two pods start: `producer-web` generates browsing sessions at about **200 events a second** on average over a day, and `producer-cc` about **20 card transactions a second**. The rate follows an hour-of-day curve (the first log lines show the average and the peak), and sessions follow the same funnel as the backfill. Show a `[flush]` line: a batch every 5 or 6 seconds, a few thousand rows each. The rates are `PRODUCE_TARGET_EPS` and `CC_TARGET_TPS` in `.env`; if they want to change them, **they** edit `.env` and you run `make apply-env`.
+Two pods start: `producer-web` generates browsing sessions at about **100 events a second** on average over a day, and `producer-cc` about **10 card transactions a second** (the load in `.env.example`, half the full one). The rate follows an hour-of-day curve (the first log lines show the average and the peak), and sessions follow the same funnel as the backfill. Show a `[flush]` line: a batch every 5 or 6 seconds, of hundreds of rows or more, depending on the hour. The rates are `PRODUCE_TARGET_EPS` and `CC_TARGET_TPS` in `.env`; if they want to change them, **they** edit `.env` and you run `make apply-env`.
 
 ### 4. `dashboard` [PARTICIPANT DOES — console] Open the dashboard
 
