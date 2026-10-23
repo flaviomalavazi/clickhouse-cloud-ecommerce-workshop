@@ -1,7 +1,5 @@
 # Module 09: ClickHouse Agents
 
-> **Draft.** This module is written from the ClickHouse documentation and has not been walked through in the console yet. The notes marked **TODO(owner)** are things the documentation does not say and that have to be checked in the live console before the workshop. The banner and the notes go when they are.
-
 **Goal:** ask the data you built questions in plain language with **ClickHouse Agents**, and learn to check an agent's answer against SQL you trust.
 
 **Time:** about 25 minutes (an estimate: it has not been timed).
